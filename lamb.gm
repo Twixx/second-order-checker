@@ -1,0 +1,50 @@
+[Syntax]
+
+s in string
+i in int
+
+t in term ::= Lamb<x>(t[x])
+            | LetRec<x,y>(t[x,y], t[x])
+            | a
+
+a in app ::= App(a, v)
+           | v
+
+v in var ::= Free(s)
+           | Bound(i)
+           | t
+
+[Judgments]
+[Rules]
+(*
+[Judgments]
+DeriveTo(t, t)
+
+[Rules]
+
+DeriveTo(t1, t2)
+----------------------------------E-APP1
+DeriveTo(App(t1, t3), App(t2, t3))
+;
+(* E-APP2 is in fact 2 rules, for FreeId and for Lamb which are both values *)
+(* Maybe something like constructor union operator could be nice in the future *)
+
+DeriveTo(t1, t2)
+----------------------------------------------E-APP2v
+DeriveTo(App(Free(s1), t1), App(Free(s1), t2))
+;
+DeriveTo(t1, t2)
+----------------------------------------------------------E-APP2l
+DeriveTo(App(Lamb<x>(t3[x]), t1), App(Lamb<x>(t3[x]), t2))
+;
+-----------------------------------------E-AppAbs
+DeriveTo(App(Lamb<x>(t1[x]), t2), t1[t2])
+;
+(x)[DeriveTo(t1[x], t2[x])]
+----------------------------------------E-AppFull
+DeriveTo(Lamb<x>(t1[x]), Lamb<x>(t2[x]))
+;
+----------------------------------------------E-LetRec
+DeriveTo(LetRec<x,y>(t1[x,y], t2[x]),
+         t2[Lamb<z>(LetRec<x,y>(t1[x,y], t1[x,z]))])
+*)
