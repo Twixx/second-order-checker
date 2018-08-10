@@ -34,9 +34,13 @@ rule token = parse
           | "[Syntax]"                  { SHEADER }
           | "[Judgments]"               { JHEADER }
           | "[Rules]"                   { RHEADER }
+          | ['-']+ (['A'-'Z'] ['a'-'z' 'A'-'Z' '-' '1'-'9']* as id)
+                                        { RULENAME id }
           | ['A'-'Z'] ['a'-'z' 'A'-'Z']* as id
                                         { UCID id }
           | ['a'-'z'] ['a'-'z']+ as id  { LCID id }
+          | (['a'-'z'] as c) (['1'-'9']+ as i)
+                                        { VAR (c, int_of_string i) }
           | ['a'-'z'] as c              { CHAR c }
           | ';'                         { SEMI }
           | ','                         { COMA }

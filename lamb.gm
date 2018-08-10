@@ -15,13 +15,9 @@ v in var ::= Free(s)
            | t
 
 [Judgments]
-[Rules]
-(*
-[Judgments]
 DeriveTo(t, t)
 
 [Rules]
-
 DeriveTo(t1, t2)
 ----------------------------------E-APP1
 DeriveTo(App(t1, t3), App(t2, t3))
@@ -47,4 +43,3 @@ DeriveTo(Lamb<x>(t1[x]), Lamb<x>(t2[x]))
 ----------------------------------------------E-LetRec
 DeriveTo(LetRec<x,y>(t1[x,y], t2[x]),
          t2[Lamb<z>(LetRec<x,y>(t1[x,y], t1[x,z]))])
-*)

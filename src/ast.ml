@@ -1,20 +1,22 @@
 open Lexing
 
 exception AlreadyDefinedCtor of string
+exception UndefinedCtor of string
 exception UnboundParam of char
 
 type info = position * position
 
 type type_id = int
+type ctor_id = int
+type var_id = type_id * int
 module StringMap = Map.Make(String)
-type ctor_table = { mutable count: int; mutable syms: int StringMap.t }
+type ctor_table = { mutable count: int * int; mutable syms: ctor_id StringMap.t }
 
 
 (* param type + bound variable in order *)
 type param = type_id * int list
 (* id * arity * ... *)
-type ctor = int * int * param list
-
+type ctor = ctor_id * int * param list
 type cgroup = 
     | Constructor of ctor
     | Sub of type_id
@@ -22,25 +24,54 @@ type cgroup =
 
 type term = { id: type_id; name: string; ctors: cgroup list}
 
-type judgement = string * type_id list
+type judgement = ctor_id * type_id list
 
 type rule_name = string
 
-type game = { syms: ctor_table; bnf_def: term list }
+type expr =
+    | Ctor of ctor_expr
+    | Var of var
+    | Abs of expr
+
+and var_param =
+    | Expr of expr
+    | Bound of int
+
+and ctor_expr = ctor_id * int * expr list
+and var =  var_id * var_param list
+
+type rule = {premises: expr list; concl: expr; name: rule_name}
+
+type game = { syms: ctor_table; bnf_def: term list; judgs: judgement list; rules: rule list}
 
 
-let new_ctor_table () =
-    { count = 0; syms = StringMap.empty }
+let new_symb_table () =
+    { count = (0, -1); syms = StringMap.empty }
 
-let add_ctor str (table: ctor_table) =
+let assert_not_exist str (table: ctor_table) =
     if StringMap.mem str table.syms then
         raise (AlreadyDefinedCtor str)
-    else
-        let c = table.count in
-        table.syms <- StringMap.add str c table.syms;
-        table.count <- table.count + 1;
-        c
-    
+
+let get_ctor_id str (table: ctor_table) =
+    try
+        StringMap.find str table.syms
+    with Not_found ->
+        raise (UndefinedCtor str)
+
+let add_ctor str table =
+    assert_not_exist str table;
+    let (c1, c2) = table.count in
+    table.syms <- StringMap.add str c1 table.syms;
+    table.count <- (c1 + 1, c2);
+    c1
+
+let add_judg str table =
+    assert_not_exist str table;
+    let (c1, c2) = table.count in
+    table.syms <- StringMap.add str c2 table.syms;
+    table.count <- (c1, c2 - 1);
+    c2
+
 let rec apply par l =
     match l with
     | [] -> []
