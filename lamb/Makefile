@@ -1,6 +1,6 @@
 .PHONY: all clean byte native profile debug sanity test
 
-OCB_FLAGS   = -use-ocamlfind -use-menhir -pkg str -I src -I lib # uses menhir
+OCB_FLAGS   = -use-ocamlfind -use-menhir -I src -I lib # uses menhir
 OCB = ocamlbuild $(OCB_FLAGS)
 
 all: native # profile debug
@@ -23,11 +23,7 @@ profile: sanity
 debug: sanity
 	$(OCB) -tag debug main.byte
 
+
 # check that menhir is installed, use "opam install menhir"
 sanity:
 	which menhir
-
-graph: native
-	./main.native < $(test) > test.dot
-	dot -Tsvg -otest.svg test.dot
-	eog test.svg

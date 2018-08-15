@@ -1,0 +1,150 @@
+open Ast
+open Sstream
+
+(* Raised when the left-hand side of a constraint is matched against another
+ * metavariable *)
+exception NonMatchingProblem
+
+(* Return a fresh metavariable
+ * Since the identifier is negative, it should be different from all the other
+ * ones *)
+let current_meta = ref (-1)
+let pick_fresh_name () =
+    let m = !current_meta in
+    decr current_meta; m
+
+(* Check if a term is closed or not, should be implemented in the checker in
+* the future *)
+let rec is_closed node idx =
+    match node.term with
+    <is_closed_fun>
+    | <var> (_, id) when id >= idx -> false
+    | <var> _ | <metavar> _ <builtin_closed> -> true
+
+(* Shift indices by d from c index *)
+let rec shift d c node =
+    let updated =
+        match node.term with
+        <shift_fun>
+        | <var> (tag, id) when id >= c -> <var> (tag, id + d)
+        | <var> _ | <metavar> _ <builtin_shift> -> node.term
+    in
+    { node with term = updated }
+
+(* Head normalize
+ * Since metavariables can take other metavariables as parameter, a recursive
+ * call with all the previous solutions have to be done when substuting with a
+ * projection *)
+let head_normalize threshold full_sols t =
+    let rec hn sols t =
+        match sols with
+        | [] -> t
+        | { met = s_id; sub = ctx } :: tail ->
+                begin match t.term with
+                | <metavar> (id, par0) ->
+                        if s_id = id then
+                            begin match ctx with
+                            | <proj> n ->
+                                    hn full_sols (List.nth par0 n)
+                            | <cvar> (tag, id) ->
+                                    (* id stand for the index of the free
+                                     * variable in the current tree we are
+                                     * checking, Adding the threshold gives us
+                                     * the index in the current context *)
+                                    <var_fname> (tag, threshold + id)
+                            | <closed> node ->
+                                    node
+                            (* User defined *)
+                            <head_normalize_fun>
+                            (* Built-in *)
+                            <head_normalize_builtin_fun>
+                            end
+                        else hn tail t
+                | _ -> t
+                end
+    in hn full_sols t
+
+(* Return some context of a given term or none if undifined *)
+let context threshold = function
+    (* Built-in*)
+    <builtin_ctx_fun>
+    (* If it's a free variable, get the index in the context of the tree we are
+     * currently checking, if bound, context is not defined *)
+    | <var> (tag, id) ->
+            if id < threshold then None else Some (<cvar> (tag, id - threshold))
+    | <metavar> _ -> raise NonMatchingProblem
+    (* User defined *)
+    <ctx_fun>
+
+(* Generate recursively a stream of n substitutions of id with the projection k
+ * concatenated in front of sols *)
+let rec gen_projections id n k t sols =
+    if k = n then
+        no_solution
+    else
+        let next () =
+            gen_projections id n (k + 1) t sols
+        in
+        let s =
+            (bind_meta id (<proj> k)) :: sols
+        in
+        create_stream s next
+
+(* Try to unify one constraint, return a stream of solutions, if it is a
+ * match between two variables and they are equals, return one empty list
+ * of substitution as the only solution, None otherwise *)
+let rec unify_one (left, right, threshold) sols =
+    let left' = head_normalize threshold sols left in
+    match left'.term, right.term with
+    (* no new constraint current stream is valid *)
+    | <var> (tag1, id1), <var> (tag2, id2) when id1 = id2 && tag1 = tag2 ->
+            create_eos sols
+    | <metavar> (id, par), _ ->
+            let arity = List.length par in
+            if arity = 0 && (is_closed right 0)
+            then
+                create_eos ((bind_meta id (<closed> right)) :: sols)
+            else
+                let proj () = gen_projections id arity 0 right.term sols in
+                let new_stream =
+                    begin match context threshold right.term with
+                    | None ->
+                            proj ()
+                    | Some ctx ->
+                            create_stream ((bind_meta id ctx) :: sols) proj
+                    end
+                in
+                unify_head (left', right, threshold) [] new_stream
+    (* User defined *)
+    <unify_one_fun>
+    (* Built-in *)
+    <builtin_unify_one_fun>
+    | _ -> no_solution
+
+(* Take a list of constraints and a stream of possible substitutions
+ * (left, right) is the first constraint *)
+and unify_head constr tail stream =
+    match stream with
+    | Some current ->
+            let next_try () = unify_head constr tail (current.next ()) in
+            (* try to unify the head and get the possible solutions *)
+            let result = unify_one constr current.guess in
+            (* Return the new constraints generated by the
+            * recursive call and concatenate the next_try at the end.
+            * In case of a fail, next_try will be called (because concatenated
+            * to None) *)
+            begin match tail with
+            | hd :: tl ->
+                    concat_stream next_try (unify_head hd tl result)
+            | [] -> concat_stream next_try result
+            end
+    (* ran out of solutions *)
+    | None -> no_solution
+
+(* Unify: take a list of constraints and return a stream of all the possible
+ * solutions under the empty set of substitution *)
+and unify = function
+    | head :: tail ->
+            unify_head head tail (create_eos [])
+    | [] -> create_eos []
+

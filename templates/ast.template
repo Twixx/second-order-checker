@@ -1,0 +1,74 @@
+open Lexing
+
+type info = position * position
+
+type rule_name =
+    <rule_enum>
+
+type rule = rule_name * info
+
+type tag =
+    <term_tags>
+
+type metavar = int
+type node = { term:term; pos:info }
+and term =
+    | <metavar> of metavar * node list
+    | <var> of tag * int
+    (* User defined *)
+    <term_def>
+    (* Built-in *)
+    <builtin_term_def>
+
+type judgement =
+    <judg_def>
+
+type premises =
+    (* the int stands for the number of abstractions around the tree *)
+    | <premises> of (int * ast) list
+    | <empty>
+
+and ast = (int * judgement * info) * rule * premises * info
+
+type context =
+    | <proj> of int
+    | <cvar> of tag * int
+    (* User defined *)
+    <ctx_def>
+    (* Built-in *)
+    <builtin_ctx_def>
+    (* For a closed term *)
+    | <closed> of node
+
+type sub = { met:metavar; sub:context }
+
+(* Constraint type: stands for one equation to match, right-hand side has
+ * to be closed, otherwise NonMatchingProblem could be raise *)
+type constr = node * node
+
+(* Useful constructors *)
+
+(* build a term with a dummy position *)
+let dummy_info = (Lexing.dummy_pos, Lexing.dummy_pos)
+let create_dum term = { term=term; pos=dummy_info }
+
+let <var_fname> (tag, i) = create_dum (<var> (tag, i))
+let <meta_fname> (id, par) = create_dum (<metavar> (id, par))
+<ctor_functions>
+<builtin_functions>
+
+let rule_name = function
+    (* | ENUM -> string *)
+    <rule_display_fun>
+
+let print_info inf =
+    let b, e = inf in
+    if b.pos_lnum = e.pos_lnum then
+        "Line " ^ string_of_int b.pos_lnum ^
+         ", characters " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
+         "-" ^ string_of_int (e.pos_cnum - e.pos_bol)
+    else
+        "Line " ^ string_of_int b.pos_lnum ^
+         " character " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
+         " to line " ^ string_of_int e.pos_lnum ^
+         " character " ^ string_of_int (e.pos_cnum - e.pos_bol)

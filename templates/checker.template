@@ -1,0 +1,54 @@
+open Ast
+open Unify
+
+(* functions to check the number of premises *)
+exception PremError of int * int
+exception AbsError of int * int * info
+exception JudgError of info
+exception UnknownError
+
+let check_qexprs max_vars f stream =
+    let vars = Array.make max_vars (Proj 0) in
+    let rec check_qexpr = function
+        | None -> false
+        | Some { Sstream.guess = guess; next = next } ->
+                let filter_sub { Ast.met = i; sub = c } =
+                    if i >= 0 && i < max_vars then vars.(i) <- c
+                in
+                List.iter filter_sub guess;
+                if f vars then true
+                else check_qexpr (next ())
+    in
+    check_qexpr stream
+
+let match_rule concl premises rule =
+    match rule with
+    <match_rule>
+
+let rec check_ast (concl, (rule, _), premises, pos) threshold =
+    try
+        let prems = match premises with <empty> -> [] | <premises> l -> l in
+        if match_rule concl prems rule then
+            (* ignore the number of abstractions on the top of the tree
+                * the bound variables by these ones are thus seen as free
+                * variables *)
+            List.iter (fun (_, ast) -> check_ast ast threshold) prems
+        else begin
+            print_string (print_info pos);
+            print_string (":\nExpression doesn't match the pattern of "
+                        ^ (rule_name rule) ^ "\n")
+        end
+    with
+        | PremError (given, expect) ->
+                Printf.printf "%s:\nPremises number mismatch: %i given, but %i expected for the rule %s\n"
+                    (print_info pos) given expect (rule_name rule)
+        | AbsError (given, expect, pos) ->
+                Printf.printf "%s:\nAbstractions number mismatch:\nThis judgement is nested %i time(s), but the rule %s expect a %i time(s) nested judgement for this premise\n"
+                    (print_info pos) given (rule_name rule) expect
+        | JudgError (pos) ->
+                Printf.printf "%s:\nWrong judgement\n"
+                (print_info pos)
+        | UnknownError ->
+                print_string "Internal error: please check the parser"
+
+

@@ -1,6 +1,5 @@
 %token SHEADER JHEADER RHEADER
-%token IN
-%token <Char.t> CHAR
+%token IN WITH VAR
 %token <string> LCID UCID RULENAME
 %token DEF
 %token LPAREN RPAREN
@@ -8,7 +7,8 @@
 %token LBRACKET RBRACKET
 %token OR
 %token SEMI COMA
-%token <char * int> VAR
+%token <string * int> VARNAME
+%token <Ast.qexp list> QEXP
 %token EOF
 
 %start entrypoint
@@ -17,138 +17,136 @@
 %%
 
 entrypoint:
-    SHEADER defs = list(term_def) JHEADER j = list(judgement) RHEADER r = rules EOF
+    SHEADER defs = syncat+
+    JHEADER judgs = judgment+
+    RHEADER rules = separated_nonempty_list(SEMI, rule) EOF
     {
-        let ctor_table = Ast.new_symb_table () in
-        let ctors = Ast.apply ctor_table defs in
-        let judgs = Ast.apply ctor_table j in
-        let rules = Ast.apply ctor_table r in
-        { Ast.syms = ctor_table; Ast.bnf_def = ctors; Ast.judgs = judgs; rules = rules}
+        { bnf_ast = defs; judgs = judgs; rules = rules; }
     }
 
-term_def:
-    c = CHAR IN name = LCID opt = option(ctors_def)
+syncat:
+    syms = symbol_list IN tname = UCID vars = var_symbols syns = syncat_defs
     {
-        fun ctor_table ->
-            let ctors =
-                match opt with
-                | None -> []
-                | Some l -> Ast.apply ctor_table l
-            in
-            {Ast.id = Char.code c; Ast.name = name; Ast.ctors = ctors}
+        { Ast.syn_symbols = syms;
+          Ast.var_symbols = vars;
+          Ast.catname = (tname, ($startpos(tname), $endpos(tname)));
+          Ast.defs = syns; }
+    }
+    | syms = symbol_list IN tname = LCID
+    {
+        { Ast.syn_symbols = syms;
+          Ast.var_symbols = [];
+          Ast.catname = (tname, ($startpos(tname), $endpos(tname)));
+          Ast.defs = [] }
     }
 
-ctors_def:
-    DEF l = separated_nonempty_list(OR, ctor) {l}
+symbol_list:
+    symb = LCID { [(symb, ($startpos, $endpos))] }
+    | s = LCID COMA l = symbol_list { (s, ($startpos(s), $endpos(s))) :: l}
+
+var_symbols:
+    (* empty *) { [] }
+    | WITH VAR v = symbol_list { v }
+
+syncat_defs:
+    (* empty *) { [] }
+    | DEF l = separated_nonempty_list(OR, syncat_def) {l}
+
+syncat_def:
+    | name = UCID ctx = meta_par
+      t = loption(delimited(LPAREN, separated_list(COMA, ctor_param), RPAREN))
+    {
+        let info = ($startpos, $endpos) in
+        Ast.CtorDef ((name, ctx, t), info)
+    }
+    | name = LCID
+    {
+       let info = ($startpos, $endpos) in
+       Ast.Symbol (name, info)
+    }
 
 meta_par:
-    LANGLE params = separated_nonempty_list(COMA, CHAR) RANGLE
-    {params}
+    l = loption(delimited(LANGLE, separated_list(COMA, mpar), RANGLE))
+    { List.rev l }
 
-term_par:
-    LBRACKET params = separated_list(COMA, CHAR) RBRACKET
+mpar:
+    id = LCID { (id, ($startpos, $endpos)) }
+
+bound_params:
+    (* empty *) { [] }
+    | LBRACKET params = symbol_list RBRACKET
     {
-        fun ctx ->
-            let rec lookup n ctx c =
-                match ctx with
-                | [] -> raise (Ast.UnboundParam c)
-                | h :: t -> if h = c then n else lookup (n+1) t c
-            in List.map (lookup 0 ctx) params
+        List.rev params
     }
 
-term:
-    id = CHAR opt = option(term_par)
+ctor_param:
+    name = LCID params = bound_params
     {
-        fun ctx ->
-            let params =
-                match opt with
-                | Some l -> l ctx
-                | None -> [] 
-            in
-            (Char.code id, params)
+        let info = ($startpos, $endpos) in
+        (name, params, info)
     }
 
-ctor:
-    | name = UCID opt = option(meta_par) LPAREN t = separated_list(COMA, term) RPAREN
+judgment:
+    name = UCID args = loption(delimited(LPAREN, symbol_list, RPAREN))
     {
-        fun ctor_table ->
-            let ctx =
-                match opt with
-                | Some l -> l
-                | None -> []
-            in
-            let params = Ast.apply ctx t in
-            let id = Ast.add_ctor name ctor_table in
-            Ast.Constructor (id, List.length ctx, params)
+        let info = ($startpos, $endpos) in
+        (name, args, info)
     }
-    | c = CHAR { fun _ -> Ast.Sub (Char.code c) }
-
-judgement:
-    name = UCID LPAREN l = separated_list(COMA, CHAR) RPAREN
-    { fun table ->
-        let id = Ast.add_judg name table in
-        (id, List.map Char.code l)
-    }
-
-rules:
-    l = separated_list(SEMI, rule) { l }
 
 rule:
-    prems = list(expr) r = RULENAME c = expr
+    prems = premise* r = RULENAME c = topexpr
     {
-        fun table ->
-            let param = (table, []) in
-            {Ast.premises = Ast.apply param prems; Ast.concl = c param; Ast.name = r}
+        let info = ($startpos(r), $endpos(r)) in
+        { Ast.premises = prems;
+          Ast.concl = c;
+          Ast.name = (r, info); }
+    }
+
+premise:
+    t = topexpr { Judgment t }
+    | e = QEXP { QExp e }
+
+topexpr:
+    name = UCID LPAREN l = separated_list(COMA, expr) RPAREN
+    {
+        let info = ($startpos, $endpos) in
+        let judg = (name, l) in
+        (* add an empty context *)
+        ([], judg, info)
+    }
+    | LPAREN vars = separated_nonempty_list(COMA, mpar) RPAREN LBRACKET t = topexpr RBRACKET
+    {
+        let ctx, expr, info = t in
+        (ctx @ (List.rev vars), expr, info)
     }
 
 expr:
-    | name = UCID opt = option(meta_par) LPAREN l = separated_list(COMA, expr) RPAREN
+    name = UCID vars = meta_par
+    l = loption(delimited(LPAREN, separated_list(COMA, expr), RPAREN))
     {
-        fun (table, ctx) ->
-            let id = Ast.get_ctor_id name table in
-            let new_ctx = 
-                match opt with
-                | None -> ctx
-                | Some vars -> (List.rev vars) @ ctx
-            in
-            Ast.Ctor (id, List.length l, Ast.apply (table, new_ctx) l)
+        let info = ($startpos, $endpos) in
+        (Ast.Ctor (name, vars, l), info)
+
     }
-    | v = VAR opt = option(var_params)
+    | v = VARNAME params = var_params
     {
-        let (c, i) = v in
-        fun (table, ctx) ->
-            let params = 
-                match opt with
-                | None -> []
-                | Some l -> Ast.apply (table, ctx) l
-            in
-            Ast.Var ((Char.code c, i), params)
-    }
-    | LPAREN vars = separated_nonempty_list(COMA, CHAR) RPAREN LBRACKET e = expr RBRACKET
-    {
-        fun (table, ctx) ->
-            let new_ctx = (List.rev vars) @ ctx in
-            Ast.Abs (e (table, new_ctx))
+            let info = ($startpos, $endpos) in
+            (Ast.Var (v, params), info)
     }
 
 var_params:
-    LBRACKET l = separated_list(COMA, var_param) RBRACKET { l }
+    (* empty *) { [] }
+    | LBRACKET l = separated_list(COMA, var_param) RBRACKET { l }
 
 var_param:
     | e = expr
     {
-        fun (table, ctx) ->
-            Ast.Expr (e (table, ctx))
+            let (expr, info) = (e) in
+            let info = ($startpos, $endpos) in
+            Ast.Expr (expr, info)
     }
-    | id = CHAR
+    | id = LCID
     {
-        fun (table, ctx) ->
-            let rec lookup n ctx c =
-                match ctx with
-                | [] -> raise (Ast.UnboundParam c)
-                | h :: t -> if h = c then n else lookup (n+1) t c
-            in Ast.Bound (lookup 0 ctx id)
+        let info = ($startpos, $endpos) in
+        Ast.Bound (id, info)
     }
-    
-(* FIXME: accept anything as top level rule like var or ctor that is not judg *)
-(* FIXME: check that type alias exists *)

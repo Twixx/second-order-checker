@@ -1,90 +1,75 @@
 open Lexing
 
-exception AlreadyDefinedCtor of string
-exception UndefinedCtor of string
-exception UnboundParam of char
-
 type info = position * position
 
-type type_id = int
-type ctor_id = int
-type var_id = type_id * int
-module StringMap = Map.Make(String)
-type ctor_table = { mutable count: int * int; mutable syms: ctor_id StringMap.t }
+(* For metavariable *)
+type mvar = string
+(* For variable *)
+type symbol = string
 
+type context = (mvar * info) list
 
-(* param type + bound variable in order *)
-type param = type_id * int list
-(* id * arity * ... *)
-type ctor = ctor_id * int * param list
-type cgroup = 
-    | Constructor of ctor
-    | Sub of type_id
-    | BuiltIn of string
+(* Parameter symbol + bound variables like t[x, y] *)
+type ctor_parameter = symbol * (mvar * info) list * info
+type ctor = string * context * ctor_parameter list
 
-type term = { id: type_id; name: string; ctors: cgroup list}
+type syncat_def =
+    | CtorDef of ctor * info
+    | Symbol of symbol * info
 
-type judgement = ctor_id * type_id list
+type syncat =
+    {   syn_symbols : (string * info) list;
+        var_symbols : (string * info) list;
+        catname    : string * info;
+        defs        : syncat_def list;
+    }
 
+(* Judgments *)
+type judgment = string * (symbol * info) list * info
+
+(* Rules *)
+type variable = symbol * int
 type rule_name = string
 
+(* Expression in rule definiton *)
+(* Bound parameters cannot be an expression *)
 type expr =
-    | Ctor of ctor_expr
-    | Var of var
-    | Abs of expr
+    | Ctor of string * context * (expr * info) list
+    | Var of variable * var_arg list
 
-and var_param =
-    | Expr of expr
-    | Bound of int
+(* Parameters of a variable are either expressions or a bound parameters *)
+and var_arg =
+    | Expr of expr * info
+    | Bound of mvar * info
 
-and ctor_expr = ctor_id * int * expr list
-and var =  var_id * var_param list
+type judg_expr = string * (expr * info) list
 
-type rule = {premises: expr list; concl: expr; name: rule_name}
+(* Abstracted judgment *)
+type topexpr = context * judg_expr * info
 
-type game = { syms: ctor_table; bnf_def: term list; judgs: judgement list; rules: rule list}
+(* Quoted expressions are lists of variables and strings of code *)
+type qexp = QVar of variable * info | QStr of string
+type premise = Judgment of topexpr | QExp of qexp list
+type rule =
+    { premises  : premise list;
+      concl     : topexpr;
+      name      : rule_name * info;
+    }
 
+type game =
+    { bnf_ast   : syncat list;
+      judgs     : judgment list;
+      rules     : rule list;
+    }
 
-let new_symb_table () =
-    { count = (0, -1); syms = StringMap.empty }
-
-let assert_not_exist str (table: ctor_table) =
-    if StringMap.mem str table.syms then
-        raise (AlreadyDefinedCtor str)
-
-let get_ctor_id str (table: ctor_table) =
-    try
-        StringMap.find str table.syms
-    with Not_found ->
-        raise (UndefinedCtor str)
-
-let add_ctor str table =
-    assert_not_exist str table;
-    let (c1, c2) = table.count in
-    table.syms <- StringMap.add str c1 table.syms;
-    table.count <- (c1 + 1, c2);
-    c1
-
-let add_judg str table =
-    assert_not_exist str table;
-    let (c1, c2) = table.count in
-    table.syms <- StringMap.add str c2 table.syms;
-    table.count <- (c1, c2 - 1);
-    c2
-
-let rec apply par l =
-    match l with
-    | [] -> []
-    | h :: t -> (h par) :: (apply par t)
-
-let print_info inf = 
+let print_info inf =
     let b, e = inf in
     if b.pos_lnum = e.pos_lnum then
-        "Line " ^ string_of_int b.pos_lnum ^
+        "line " ^ string_of_int b.pos_lnum ^
          ", characters " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
          "-" ^ string_of_int (e.pos_cnum - e.pos_bol)
     else
-        "Line " ^ string_of_int b.pos_lnum ^
+        "line " ^ string_of_int b.pos_lnum ^
          " character " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
          " to line " ^ string_of_int e.pos_lnum ^
          " character " ^ string_of_int (e.pos_cnum - e.pos_bol)
