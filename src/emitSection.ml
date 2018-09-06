@@ -204,7 +204,7 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
         | QStr _ -> m
     in
     let qmap = List.fold_left (fun m l -> List.fold_left add_qmap m l) QMap.empty qexps in
-    let m = fst (QMap.max_binding qmap) in
+    let m = match QMap.max_binding_opt qmap with None -> 0 | Some (m, _) -> (m + 1) in
     let rec concat_qexp acc = function
             | Game.QVar (_, i) :: tl -> concat_qexp (sprintf "%sv%i" acc i) tl
             | QStr str :: tl -> concat_qexp (acc ^ str) tl
@@ -216,5 +216,5 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
         sprintf "\nlet v%i = match vars.(%i) with %s v -> v | _ -> raise UnknownError in" i i builtins.(cat).bltin_ctx
     in
     let build_vars = QMap.fold (fun k v vars -> vars ^ (match_var k v)) qmap "" in
-    let fun_def = sprintf "\n|>\nlet check_qexpr vars =%s\nin check_qexprs %i check_qexpr" (indent (build_vars ^ qexps_body)) (m + 1) in
+    let fun_def = sprintf "\n|>\nlet check_qexpr vars =%s\nin check_qexprs %i check_qexpr" (indent (build_vars ^ qexps_body)) m in
     unif_body ^ (indent2 fun_def)
