@@ -1,0 +1,140 @@
+open Lexing
+
+type info = position * position
+
+type rule_name =
+    <rule_enum>
+
+type rule = rule_name * info
+
+type tag =
+    <term_tags>
+
+type metavar = int
+type node = { term:term; pos:info }
+and term =
+    | <metavar> of metavar * node list
+    | <var> of tag * int
+    (* User defined *)
+    <term_def>
+    (* Built-in *)
+    <builtin_term_def>
+
+type judgement =
+    <judg_def>
+
+type premises =
+    (* the int stands for the number of abstractions around the tree *)
+    | <premises> of (int * ast) list
+    | <empty>
+
+and ast = (int * judgement * info) * rule * premises * info
+
+type context =
+    | <proj> of int
+    | <cvar> of tag * int
+    (* User defined *)
+    <ctx_def>
+    (* Built-in *)
+    <builtin_ctx_def>
+    (* For a closed term *)
+    | <closed> of node
+
+type sub = { met:metavar; sub:context }
+
+(* Constraint type: stands for one equation to match, right-hand side has
+ * to be closed, otherwise NonMatchingProblem could be raise *)
+type constr = node * node
+
+(* Useful constructors *)
+
+(* build a term with a dummy position *)
+let dummy_info = (Lexing.dummy_pos, Lexing.dummy_pos)
+let create_dum term = { term=term; pos=dummy_info }
+
+let <var_fname> (tag, i) = create_dum (<var> (tag, i))
+let <meta_fname> (id, par) = create_dum (<metavar> (id, par))
+<ctor_functions>
+<builtin_functions>
+
+let rule_name = function
+    <rule_display_fun>
+
+(* Parser functions *)
+
+type parsing_ctx = { mutable free : string list; bound : string list }
+let new_ctx = { free = []; bound = [] }
+let add_bound ctx b = { ctx with bound = b :: ctx.bound }
+let add_bounds ctx l = { ctx with bound = List.rev_append l ctx.bound }
+
+(* Free variable are saved as de bruijn indices
+ * They are kept in the free_vars list
+ * positive indices are bound variables
+ * negative ones are the negation of the positions of the free ones in
+ * the list regardless of the context *)
+
+(* These functions shift the index of a free variable to its real ones
+ * they keep track of the index of the first free variable
+ * then substract the negative index to it to have a possible index
+ * greater than all the bound ones *)
+
+let rec shift_prems free_idx = function
+    | <premises> prems ->
+            let shift_prem (len, ast) = (len, shift_ast (free_idx + len) ast) in
+            <premises> (List.map shift_prem prems)
+    | <empty> -> <empty>
+
+and shift_ast free_idx (concl, r, prems, info) =
+    let concl' = shift_concl free_idx concl in
+    let prems' = shift_prems free_idx prems in
+    (concl', r, prems', info)
+
+and shift_concl free_idx (len, judg, info) =
+    let new_judg =
+        let shift = shift_node (free_idx + len) in
+        match judg with
+        <shift_judg_ast>
+    in
+    (len, new_judg, info)
+
+and shift_node free_idx node =
+    let shift i t = shift_node (free_idx + i) t in
+    let updated =
+        match node.term with
+        <shift_ctor_ast>
+        | <var> (tag, id) when id < 0 -> <var> (tag, free_idx - id)
+        | <var> _ | <metavar> _ -> node.term
+    in
+    { node with term = updated }
+
+let gen_free_vars ast = shift_ast (-1) ast
+
+let lookup_ctx ctx id =
+    (* First look if the variable is bound *)
+    (* If not, look if we saw it before and then just use the negation of
+        * the index in the list *)
+    (* If not, add it to the free variables list *)
+    let rec lookup_free n free_ctx =
+        match free_ctx with
+        | [] -> ctx.free <- ctx.free @ [id]; n
+        | h :: t -> if h = id then n else lookup_free (n - 1) t
+    in
+    let rec lookup_bound n bound_ctx =
+        match bound_ctx with
+        | [] -> lookup_free (-1) ctx.free
+        | h :: t -> if h = id then n else lookup_bound (n + 1) t
+    in
+    lookup_bound 0 ctx.bound
+
+
+let print_info inf =
+    let b, e = inf in
+    if b.pos_lnum = e.pos_lnum then
+        "Line " ^ string_of_int b.pos_lnum ^
+         ", characters " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
+         "-" ^ string_of_int (e.pos_cnum - e.pos_bol)
+    else
+        "Line " ^ string_of_int b.pos_lnum ^
+         " character " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
+         " to line " ^ string_of_int e.pos_lnum ^
+         " character " ^ string_of_int (e.pos_cnum - e.pos_bol)

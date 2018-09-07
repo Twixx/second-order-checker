@@ -1,33 +1,39 @@
-.PHONY: all clean byte native profile debug sanity test
+.PHONY: all clean game_maker
+# Prevent make to remove secondary files
+.SECONDARY:
 
-OCB_FLAGS   = -use-ocamlfind -use-menhir -pkg str -I src -I lib # uses menhir
-OCB = ocamlbuild $(OCB_FLAGS)
+GMC_DIR := gmc
 
-all: native # profile debug
+CHECKERS_DIR := checkers
+CHECKERS := $(wildcard $(CHECKERS_DIR)/*)
+
+# Makefile to run inside the games
+MAKEFILE := $(shell realpath $(GMC_DIR)/Makefile.game)
+DEFAULT_DIR := $(shell realpath $(GMC_DIR)/game_src)
+
+FILE_NAMES := ast.ml checker.ml unify.ml
+GEN_FILES := $(addprefix src/, $(FILE_NAMES))
+
+all: $(addsuffix /main.native, $(CHECKERS))
+
+game_maker:
+	$(MAKE) -C $(GMC_DIR)
+
+%/main.native: $(addprefix %/, $(GEN_FILES)) %/default
+	$(MAKE) -f $(MAKEFILE) -C $*
+
+%/src:
+	mkdir -p $@
+
+%/default:
+	ln -sf $(DEFAULT_DIR) $@
+
+$(addprefix %/, $(GEN_FILES)): game_maker %/src
+	cd $(GMC_DIR) &&\
+	./main.native $(realpath $*/$(notdir $*).gm) $(realpath $*/src)
 
 clean:
-	$(OCB) -clean
+	$(MAKE) -C $(GMC_DIR) clean
+	$(foreach c, $(CHECKERS), $(MAKE) -f $(MAKEFILE) -C $(c) clean)
+	$(foreach c, $(CHECKERS), rm -f $(c)/default; rm -rf $(c)/src)
 
-native: sanity
-	$(OCB) main.native
-
-byte: sanity
-	$(OCB) main.byte
-
-test: sanity
-	$(OCB) test.native
-
-profile: sanity
-	$(OCB) -tag profile main.native
-
-debug: sanity
-	$(OCB) -tag debug main.byte
-
-# check that menhir is installed, use "opam install menhir"
-sanity:
-	which menhir
-
-graph: native
-	./main.native < $(test) > test.dot
-	dot -Tsvg -otest.svg test.dot
-	eog test.svg

@@ -39,6 +39,10 @@ let () =
     let print_err pos str =
         printf "Error at %s:\n%s\n" (Ast.print_info pos) str
     in
+    let var_name (name, i) =
+        if i >= 0 then sprintf "%s%i" name i
+        else name
+    in
     try main ()
     with
     | ArgumentMissing ->
@@ -84,8 +88,10 @@ let () =
             sprintf "there is not only one lowest common parent category between %s and %s" cat1 cat2)
     | Game.InvalidBuiltin (name, pos) ->
             print_err pos (sprintf "Invalid built-in category: %s" name)
-    | Game.InvalidQVar ((name, i), cat, pos) ->
-            print_err pos (sprintf "$%s%i is of category %s, only built-in category are allowed within quoted expressions" name i cat)
+    | Game.InvalidQVar (var, cat, pos) ->
+            print_err pos (sprintf "$%s is of category %s, only built-in category are allowed within quoted expressions" (var_name var) cat)
+    | Game.UndeclaredQVar (var, pos) ->
+            print_err pos (sprintf "$%s is not declared" (var_name var))
     | EmitFiles.InvalidDirectory ->
             print_string "Path is not a valid directory\n"
     | EmitFiles.InvalidFile f ->

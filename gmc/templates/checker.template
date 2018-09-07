@@ -49,6 +49,6 @@ let rec check_ast (concl, (rule, _), premises, pos) threshold =
                 Printf.printf "%s:\nWrong judgement\n"
                 (print_info pos)
         | UnknownError ->
-                print_string "Internal error: please check the parser"
+                print_string "Internal error (it can happen when the parser is incorrect)\n"
 
 

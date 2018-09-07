@@ -1,5 +1,4 @@
 [Syntax]
-
 t in Term with var x, y, z ::= LetRec<x,y>(t[x,y], t[x])
             | App(t, t)
             | v
@@ -11,7 +10,7 @@ v in Value ::= Lamb<x>(t[x]) | x
 DeriveTo(t, t)
 
 [Rules]
-DeriveTo(t1, t2)
+DeriveTo(t1, t2) `true` `false`
 ----------------------------------E-APP1
 DeriveTo(App(t1, t3), App(t2, t3))
 ;

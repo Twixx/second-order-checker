@@ -12,6 +12,7 @@ exception CycleDetected of string
 exception DiamondDetected of string * string
 exception MultipleAncestors of string * string * info
 exception InvalidBuiltin of string * info
+exception UndeclaredQVar of Ast.variable * info
 exception InvalidQVar of Ast.variable * string * info
 exception WrongArityVar of Ast.variable * int * int * info
 exception WrongArityCtor of string * int * int * info
@@ -463,15 +464,30 @@ module MakeGame (G : GAME_AST) : GAME = struct
             | Ast.QVar ((name, i), pos) :: tl ->
                     let id = get_sym_id name pos in
                     let cid = sym_cats.(id) in
+                    let vid =
+                        begin match Hashtbl.find_opt local_var_names (id, i) with
+                        | Some (vid, _, _) -> vid
+                        | None -> raise (UndeclaredQVar ((name, i), pos))
+                        end
+                    in
                     if not (is_builtin cid) then raise (InvalidQVar ((name,i), cat_names.(cid), pos));
-                    QVar (cid, add_var name pos (id, i) (cid, [])) :: check_qexpr tl
+                    QVar (cid, vid) :: check_qexpr tl
             | Ast.QStr hd :: tl -> QStr hd :: check_qexpr tl
             | [] -> []
         in
-        let check_premise prem =
-            match prem with
-            | Ast.Judgment topexpr -> Judg (check_topexpr topexpr)
-            | Ast.QExp qexpr -> QExp (check_qexpr qexpr)
+        (* Check first the judgements to collect variables and then quoted
+         * expressions *)
+        let rec check_premises judgs qexprs = function
+            | Ast.Judgment topexpr :: tl ->
+                    let judg = Judg (check_topexpr topexpr) in
+                    check_premises (judg :: judgs) qexprs tl
+            | Ast.QExp qexpr :: tl ->
+                    (* Don't check it yet *)
+                    check_premises judgs (qexpr :: qexprs) tl
+            | [] ->
+                    (* Check the qexprs now and append them to the judgements *)
+                    let build_qexpr e = QExp (check_qexpr e) in
+                    List.(rev_append judgs (rev_map build_qexpr qexprs))
         in
         (* Injection of injection constructors *)
         let rec inject_expr infered_cats expected_cat expr =
@@ -506,7 +522,7 @@ module MakeGame (G : GAME_AST) : GAME = struct
             (* Check and build the conclusion *)
             let concl = check_topexpr Ast.(rule.concl) in
             (* Check and build the premises *)
-            let premises = List.map check_premise Ast.(rule.premises) in
+            let premises = check_premises [] [] Ast.(rule.premises) in
             (* Build the array of final variable categories *)
             let infered_cats = Array.make (Hashtbl.length local_var_names) (0,[]) in
             Hashtbl.iter (fun _ (id, cat, cats) -> infered_cats.(id) <- (cat, cats)) local_var_names;

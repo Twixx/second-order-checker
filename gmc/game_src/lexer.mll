@@ -4,13 +4,13 @@
         open Parsing
         exception LexError of string
         exception ParseError of string
-        
-        let error msg start finish  = 
-            Printf.sprintf "(line %d: char %d..%d): %s" start.pos_lnum 
+
+        let error msg start finish  =
+            Printf.sprintf "(line %d: char %d..%d): %s" start.pos_lnum
             (start.pos_cnum - start.pos_bol) (finish.pos_cnum - finish.pos_bol)
             msg
 
-        let lex_error msg lexbuf = 
+        let lex_error msg lexbuf =
             let s = error (msg ^ (lexeme lexbuf)) (lexeme_start_p lexbuf)
                     (lexeme_end_p lexbuf)
             in

@@ -38,6 +38,21 @@ let builtin_ctx_fun t =
 let builtin_unify_one_fun t =
     sprintf "| %s p1, %s p2 when p1 = p2 ->\n\t\tcreate_eos sols" t.bltin_term t.bltin_term
 
+(* Judgments section *)
+let judg_def (name, arity) =
+    if arity = 0 then sprintf "| %s" name
+    else
+        sprintf "| %s of %s" name
+            (String.concat " * " (List.init arity (fun _ -> "node")))
+
+let shift_judg_ast (name, arity) =
+    if arity = 0 then sprintf "| %s -> %s" name name
+    else
+        let l = List.init arity (fun i -> sprintf "n%i" i) in
+        let params = String.concat ", " l in
+        let shifted = String.concat ", shift " l in
+        sprintf "| %s (%s) -> %s (shift %s)" name params name shifted
+
 (* Constructors sections *)
 let term_def v =
     if v.arity = 0 then sprintf "| %s" v.term_name
@@ -51,12 +66,6 @@ let ctx_def v =
         sprintf "| %s of %s" v.ctx_name
             (String.concat " * " (List.init v.arity (fun _ -> "metavar")))
 
-let judg_def (name, arity) =
-    if arity = 0 then sprintf "| %s" name
-    else
-        sprintf "| %s of %s" name
-            (String.concat " * " (List.init arity (fun _ -> "node")))
-
 let ctor_function v =
     if v.arity = 0 then sprintf "let %s = create_dum %s" v.create_fn v.term_name
     else
@@ -64,6 +73,15 @@ let ctor_function v =
         let params = String.concat ", " l in
         sprintf "let %s (%s) = create_dum (%s (%s))"
             v.create_fn params v.term_name params
+
+let shift_ctor_ast v =
+    if v.arity = 0 then sprintf "| %s -> node.term" v.term_name
+    else
+        let l = List.init v.arity (sprintf "t%i") in
+        let params = String.concat ", " l in
+        let shift p ar = sprintf "shift %i %s" ar p in
+        let shifted = String.concat ", " (List.map2 shift l v.var_ar) in
+        sprintf "| %s (%s) -> %s (%s)" v.term_name params v.term_name shifted
 
 let is_closed_fun v =
     if v.arity = 0 then sprintf "| %s -> true" v.term_name

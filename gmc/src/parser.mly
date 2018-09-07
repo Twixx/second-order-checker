@@ -13,7 +13,6 @@
 
 %start entrypoint
 %type <Ast.game> entrypoint
-
 %%
 
 entrypoint:
