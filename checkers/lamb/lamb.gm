@@ -10,7 +10,7 @@ v in Value ::= Lamb<x>(t[x]) | x
 DeriveTo(t, t)
 
 [Rules]
-DeriveTo(t1, t2) `true` `false`
+DeriveTo(t1, t2)
 ----------------------------------E-APP1
 DeriveTo(App(t1, t3), App(t2, t3))
 ;

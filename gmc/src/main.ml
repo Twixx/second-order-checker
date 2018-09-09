@@ -25,14 +25,11 @@ let main () =
         Emitter.emit_files folder
     with
     | Parser.Error ->
-            let error =
-                Lexer.error
-                (lexeme lexbuf)
-                (lexeme_start_p lexbuf)
-                (lexeme_end_p lexbuf)
-            in
-            print_string ("Syntax error " ^ error);
-            print_newline ()
+            let str = lexeme lexbuf in
+            let pos = Lexer.get_info lexbuf in
+            Printf.printf "Syntax error at %s: \"%s\"\n" (Ast.print_info pos) str
+    | Lexer.LexError (msg, str, pos) ->
+            Printf.printf "Lexer error at %s \"%s\":\n%s\n" (Ast.print_info pos) str msg
 
 let () =
     let open Printf in

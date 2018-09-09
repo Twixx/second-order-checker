@@ -2,19 +2,11 @@
         open Parser        (* The type token is defined in parser.mli *)
         open Lexing
         open Parsing
-        exception LexError of string
-        exception ParseError of string
+        exception LexError of string * string * (position * position)
 
-        let error msg start finish  =
-            Printf.sprintf "(line %d: char %d..%d): %s" start.pos_lnum
-            (start.pos_cnum - start.pos_bol) (finish.pos_cnum - finish.pos_bol)
-            msg
-
+        let get_info lexbuf = (lexeme_start_p lexbuf, lexeme_end_p lexbuf)
         let lex_error msg lexbuf =
-            let s = error (msg ^ (lexeme lexbuf)) (lexeme_start_p lexbuf)
-                    (lexeme_end_p lexbuf)
-            in
-            raise (LexError s)
+            raise (LexError (msg, lexeme lexbuf, get_info lexbuf))
 
         let newline lexbuf =
             let pos = lexbuf.lex_curr_p in
@@ -23,7 +15,6 @@
                    pos_bol = pos.pos_cnum }
 
         let build_var name i = (name, if i = "" then (-1) else int_of_string i)
-        let get_info lexbuf = (lexeme_start_p lexbuf, lexeme_end_p lexbuf)
 
         let comment_depth = ref 0
         let buffer = Buffer.create 8
@@ -62,7 +53,7 @@ rule token = parse
           | '['                         { LBRACKET }
           | ']'                         { RBRACKET }
           | eof                         { EOF }
-          | _                           { lex_error "Unexpected char: " lexbuf }
+          | _                           { lex_error "unexpected char" lexbuf }
 
 (* Comments *)
 and comment = parse

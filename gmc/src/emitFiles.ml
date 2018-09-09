@@ -9,7 +9,7 @@ module EmitFiles (G : Game.GAME) = struct
     (* Substitutions for names used in the generated code, to quickly fix in
     * case of collision, these names can be used in the emitted code, they will
     * be substuted after *)
-    let _ = List.iter (fun (kwd, tok) -> Hashtbl.add builtin_subs kwd tok)
+    let _ = List.iter (fun (kwd, sub) -> Hashtbl.add builtin_subs kwd sub)
                 [ "<metavar>", "Metavar_";
                   "<var>",  "Var_";
                   "<var_fname>",  "var_";
