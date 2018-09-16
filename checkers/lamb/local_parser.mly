@@ -1,13 +1,14 @@
+%token LAMBDA DOT LETREC IN EQ IS LPAREN RPAREN
 %%
 %public judgment:
-    DQUOTE e1 = term IS e2 = term DQUOTE
+    e1 = term IS e2 = term
     {
         fun (ctx : Ast.parsing_ctx) ->
             Ast.DeriveTo (e1 ctx, e2 ctx)
     }
 
 term:
-    LAMBDA id = ID DOT t = term
+    LAMBDA id = LCID DOT t = term
     {
         fun ctx ->
             let open Ast in
@@ -19,7 +20,7 @@ term:
               pos = ($startpos, $endpos) }
 
     }
-    | LETREC x = ID y = ID EQ t1 = term IN t2 = term
+    | LETREC x = LCID y = LCID EQ t1 = term IN t2 = term
     {
         fun ctx ->
             let open Ast in
@@ -41,7 +42,7 @@ app:
     { e }
 
 id:
-    id = ID
+    id = LCID
     {
         fun ctx ->
             let var =

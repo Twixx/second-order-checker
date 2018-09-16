@@ -27,14 +27,17 @@ let main () =
     | Parser.Error ->
             let str = lexeme lexbuf in
             let pos = Lexer.get_info lexbuf in
-            Printf.printf "Syntax error at %s: \"%s\"\n" (Ast.print_info pos) str
+            Printf.printf "Syntax error at %s: \"%s\"\n" (Ast.print_info pos) str;
+            exit 1
     | Lexer.LexError (msg, str, pos) ->
-            Printf.printf "Lexer error at %s \"%s\":\n%s\n" (Ast.print_info pos) str msg
+            Printf.printf "Lexer error at %s \"%s\":\n%s\n" (Ast.print_info pos) str msg;
+            exit 1
 
 let () =
     let open Printf in
     let print_err pos str =
-        printf "Error at %s:\n%s\n" (Ast.print_info pos) str
+        printf "Error at %s:\n%s\n" (Ast.print_info pos) str;
+        exit 1
     in
     let var_name (name, i) =
         if i >= 0 then sprintf "%s%i" name i
@@ -43,9 +46,9 @@ let () =
     try main ()
     with
     | ArgumentMissing ->
-            print_string "A command line argument is missing\n"
+            print_string "A command line argument is missing\n"; exit 1
     | FileNotFound f ->
-            printf "Unable to find the game file: %s\n" f
+            printf "Unable to find the game file: %s\n" f; exit 1
     | Game.CtorAlreadyDefined (str, pos) ->
             print_err pos (sprintf "Constructor %s is already defined" str)
     | Game.UndefinedCtor (str, pos) ->
@@ -75,9 +78,10 @@ let () =
     | Game.WrongVarDef (tag, cat, pos) ->
             print_err pos (sprintf "This variable must be of a %s sub-category, %s is not" tag cat)
     | Game.CycleDetected cat ->
-            printf "Category %s: categories cannot be recursive\n" cat
+            printf "Category %s: categories cannot be recursive\n" cat; exit 1
     | Game.DiamondDetected (cat1, cat2) ->
-            printf "There is more than one way to build a %s from a %s\n" cat2 cat1
+            printf "There is more than one way to build a %s from a %s\n" cat2 cat1;
+            exit 1
     | Game.MultipleAncestors (cat1, cat2, pos) ->
             print_err pos (
             "The category of this parameter cannot be infered.\n" ^
@@ -90,8 +94,8 @@ let () =
     | Game.UndeclaredQVar (var, pos) ->
             print_err pos (sprintf "$%s is not declared" (var_name var))
     | EmitFiles.InvalidDirectory ->
-            print_string "Path is not a valid directory\n"
+            print_string "Path is not a valid directory\n"; exit 1
     | EmitFiles.InvalidFile f ->
-            printf "Unable to open the file %s to write\n" f
+            printf "Unable to open the file %s to write\n" f; exit 1
     | EmitFiles.TemplateNotFound f ->
-            printf "Unable to open the template file: %s\n" f
+            printf "Unable to open the template file: %s\n" f; exit 1

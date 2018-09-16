@@ -130,7 +130,7 @@ module EmitFiles (G : Game.GAME) = struct
     (* Replace all the sections and then the names *)
     let emit_ast ast =
         emit_rule_pattern "<rule_enum>" rule_enum ast |>
-        emit_rule_pattern "<rule_display_fun>" rule_display_fun |>
+        emit_rule_pattern "<rule_map_list>" rule_map_list |>
         emit_ctor_pattern "<term_def>" term_def |>
         emit_cat_pattern "<term_tags>" (fun t -> "| " ^ t) |>
         emit_ctor_pattern "<ctx_def>" ctx_def |>

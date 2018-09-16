@@ -140,7 +140,7 @@ let unify_one_fun v =
 
 (* Rule sections *)
 let rule_enum (_, _, _, enum) = "| " ^ enum
-let rule_display_fun (_, _, name, enum) = sprintf "| %s -> \"%s\"" enum name
+let rule_map_list (_, _, name, enum) = sprintf "(\"%s\", %s);" name enum
 
 let indent = Str.global_replace (Str.regexp_string "\n") "\n    "
 let indent2 = Str.global_replace (Str.regexp_string "\n") "\n        "
@@ -193,7 +193,7 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
         | Game.QExp e :: tl ->
                 let new_qexpr = e :: qexps in
                 gen_premises i bodies consts match_l new_qexpr tl
-        | [] -> (bodies, consts, match_l, qexps, i)
+        | [] -> List.(rev bodies, rev consts, rev match_l, rev qexps, i)
     in
     let gen_concl (bound, id, exprs) =
         let decomp = "\nlet (concl_len, concl, pos) = concl in" in

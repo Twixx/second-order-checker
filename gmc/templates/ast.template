@@ -2,10 +2,9 @@ open Lexing
 
 type info = position * position
 
-type rule_name =
-    <rule_enum>
+exception ParseError of string * info
 
-type rule = rule_name * info
+type rule = string * info
 
 type tag =
     <term_tags>
@@ -57,11 +56,16 @@ let <meta_fname> (id, par) = create_dum (<metavar> (id, par))
 <ctor_functions>
 <builtin_functions>
 
-let rule_name = function
-    <rule_display_fun>
+type rule_name =
+    <rule_enum>
+
+let rulenames =
+    let tbl = Hashtbl.create 16 in
+    List.iter (fun (word, token) -> Hashtbl.add tbl word token) [
+        <rule_map_list> ];
+    tbl
 
 (* Parser functions *)
-
 type parsing_ctx = { mutable free : string list; bound : string list }
 let new_ctx = { free = []; bound = [] }
 let add_bound ctx b = { ctx with bound = b :: ctx.bound }
@@ -126,15 +130,14 @@ let lookup_ctx ctx id =
     in
     lookup_bound 0 ctx.bound
 
-
 let print_info inf =
     let b, e = inf in
     if b.pos_lnum = e.pos_lnum then
-        "Line " ^ string_of_int b.pos_lnum ^
+        "line " ^ string_of_int b.pos_lnum ^
          ", characters " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
          "-" ^ string_of_int (e.pos_cnum - e.pos_bol)
     else
-        "Line " ^ string_of_int b.pos_lnum ^
+        "line " ^ string_of_int b.pos_lnum ^
          " character " ^ string_of_int (b.pos_cnum - b.pos_bol + 1) ^
          " to line " ^ string_of_int e.pos_lnum ^
          " character " ^ string_of_int (e.pos_cnum - e.pos_bol)

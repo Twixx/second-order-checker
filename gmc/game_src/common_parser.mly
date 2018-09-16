@@ -1,16 +1,21 @@
-%token LPAREN RPAREN
+%{
+    let errBtw i j s =
+        raise (Ast.ParseError (s, Parsing.((rhs_start_pos i, rhs_end_pos j))))
+
+    let errAt i s = errBtw i i s
+    let node t =
+        let info = Parsing.((symbol_start_pos (), symbol_end_pos ())) in
+        { Ast.term = t; pos = info }
+%}
+
+%token LANGLE RANGLE
 %token LBRA RBRA
 %token LSBRA RSBRA
 %token BY
-%token LAMBDA
-%token LETREC EQ IN
-%token DOT
-%token IS
 %token SEMI COMA
-%token DQUOTE
+%token <int> INTL
 %token EOF
-%token <string> ID
-%token <Ast.rule_name> RULENAME
+%token <string> LCID UCID ID
 
 %start entrypoint
 
@@ -18,19 +23,21 @@
 %%
 
 entrypoint:
-    e = ast EOF
+    e = ast
     {
         let ctx = Ast.new_ctx in
         let ast = e ctx in
         Ast.gen_free_vars ast
     }
 
-rule:
-    name = RULENAME
-    { (name, ($startpos, $endpos)) }
+rulename:
+    name = LCID | name = UCID | name = ID
+    {
+        (name, ($startpos, $endpos))
+    }
 
 ast:
-    e1 = concl BY e2 = rule LBRA e3 = separated_list(SEMI, premise) RBRA
+    e1 = concl BY e2 = rulename LBRA e3 = premises RBRA
     {
         fun ctx ->
             let premises =
@@ -43,8 +50,16 @@ ast:
             ((bound, concl, jpos), e2, premises, ($startpos, $endpos))
     }
 
+premises:
+    { [] }
+    | l = premise_list { l }
+
+premise_list:
+    p = premise SEMI prev = premise_list { p :: prev }
+    | p = premise SEMI? { [p] }
+
 concl:
-    LPAREN vars = separated_nonempty_list(COMA, ID) RPAREN LSBRA concl = concl RSBRA
+    LANGLE vars = separated_nonempty_list(COMA, LCID) RANGLE LSBRA concl = concl RSBRA
     {
         fun count ctx ->
             concl (count + (List.length vars)) (Ast.add_bounds ctx vars)
@@ -52,7 +67,7 @@ concl:
     | judg = judgment { fun count ctx -> (count, judg ctx) }
 
 premise:
-    LPAREN vars = separated_nonempty_list(COMA, ID) RPAREN LSBRA j = premise RSBRA
+    LANGLE vars = separated_nonempty_list(COMA, LCID) RANGLE LSBRA j = premise RSBRA
     {
         fun count ctx ->
             j (count + List.length vars) (Ast.add_bounds ctx vars)

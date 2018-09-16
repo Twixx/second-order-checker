@@ -2,6 +2,7 @@ open Ast
 open Unify
 
 (* functions to check the number of premises *)
+exception InvalidRulename of string * info
 exception PremError of int * int
 exception AbsError of int * int * info
 exception JudgError of info
@@ -25,8 +26,13 @@ let match_rule concl premises rule =
     match rule with
     <match_rule>
 
-let rec check_ast (concl, (rule, _), premises, pos) threshold =
+let get_rulename name pos =
+    try Hashtbl.find Ast.rulenames name
+    with Not_found -> raise (InvalidRulename (name, pos))
+
+let rec check_ast (concl, (rulename, rpos) , premises, pos) threshold =
     try
+        let rule = get_rulename rulename rpos in
         let prems = match premises with <empty> -> [] | <premises> l -> l in
         if match_rule concl prems rule then
             (* ignore the number of abstractions on the top of the tree
@@ -34,19 +40,19 @@ let rec check_ast (concl, (rule, _), premises, pos) threshold =
                 * variables *)
             List.iter (fun (_, ast) -> check_ast ast threshold) prems
         else begin
-            print_string (print_info pos);
-            print_string (":\nExpression doesn't match the pattern of "
-                        ^ (rule_name rule) ^ "\n")
+            Printf.printf "At %s: Expression doesn't match the pattern of %s\n" (print_info pos) rulename
         end
     with
+        | InvalidRulename (name, pos) ->
+                Printf.printf "At %s:\nInvalid rulename: %s\n" (print_info pos) rulename
         | PremError (given, expect) ->
-                Printf.printf "%s:\nPremises number mismatch: %i given, but %i expected for the rule %s\n"
-                    (print_info pos) given expect (rule_name rule)
+                Printf.printf "At %s:\nPremises number mismatch: %i given, but %i expected for the rule %s\n"
+                    (print_info pos) given expect rulename
         | AbsError (given, expect, pos) ->
-                Printf.printf "%s:\nAbstractions number mismatch:\nThis judgement is nested %i time(s), but the rule %s expect a %i time(s) nested judgement for this premise\n"
-                    (print_info pos) given (rule_name rule) expect
+                Printf.printf "At %s:\nAbstractions number mismatch:\nThis judgement is nested %i time(s), but the rule %s expect a %i time(s) nested judgement for this premise\n"
+                    (print_info pos) given rulename expect
         | JudgError (pos) ->
-                Printf.printf "%s:\nWrong judgement\n"
+                Printf.printf "At %s:\nWrong judgement\n"
                 (print_info pos)
         | UnknownError ->
                 print_string "Internal error (it can happen when the parser is incorrect)\n"
