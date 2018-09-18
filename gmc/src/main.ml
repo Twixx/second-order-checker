@@ -39,9 +39,9 @@ let () =
         printf "Error at %s:\n%s\n" (Ast.print_info pos) str;
         exit 1
     in
-    let var_name (name, i) =
-        if i >= 0 then sprintf "%s%i" name i
-        else name
+    let var_name (name, i, p) =
+        if i >= 0 then sprintf "%s%i%s" name i (String.make p '\'')
+        else name ^ (String.make p '\'')
     in
     try main ()
     with
@@ -56,17 +56,19 @@ let () =
     | Game.UndefinedJudg (str, pos) ->
             print_err pos (sprintf "Judgment %s is not defined" str)
     | Game.UnboundParam (name, pos) ->
-            print_err pos (name ^ "is unbounded")
+            print_err pos (name ^ " is unbounded")
+    | Game.InvalidBoundParam (name, pos) ->
+            print_err pos (name ^ " is a category variable, it cannot be used as a variable")
     | Game.SymbolAlreadyDefined (name, pos) ->
             print_err pos (sprintf "Symbol %s is already defined" name)
     | Game.UndefinedSymbol (name, pos) ->
             print_err pos (sprintf "Symbol %s is not defined\n" name)
-    | Game.WrongArityVar ((var, i), def, ar, pos) ->
-            print_err pos (sprintf "Arity mismatch, variable %s%i expects %i argument(s), %i given" var i def ar)
+    | Game.WrongArityVar (var, def, ar, pos) ->
+            print_err pos (sprintf "Arity mismatch, variable %s expects %i argument(s), %i given" (var_name var) ar def)
     | Game.WrongArityCtor (name, def, ar, pos) ->
-            print_err pos (sprintf "Arity mismatch, constructor %s expects %i argument(s), %i given" name def ar)
+            print_err pos (sprintf "Arity mismatch, constructor %s expects %i argument(s), %i given" name ar def)
     | Game.WrongMetaArityCtor (name, def, ar, pos) ->
-            print_err pos (sprintf "Arity mismatch (meta), constructor %s expects %i meta-argument(s), %i given" name def ar)
+            print_err pos (sprintf "Arity mismatch (meta), constructor %s expects %i meta-argument(s), %i given" name ar def)
     | Game.InvalidCat (t1, t2, pos) ->
             print_err pos (sprintf "Category %s is expected, %s is not a sub-category of %s" t2 t1 t2)
     | Game.RuleAlreadyDefined (name, pos) ->
@@ -93,6 +95,8 @@ let () =
             print_err pos (sprintf "$%s is of category %s, only built-in category are allowed within quoted expressions" (var_name var) cat)
     | Game.UndeclaredQVar (var, pos) ->
             print_err pos (sprintf "$%s is not declared" (var_name var))
+    | Game.UndefinedBool pos ->
+            print_err pos "Built-in bool category should be used to allow usage of true/false constructors"
     | EmitFiles.InvalidDirectory ->
             print_string "Path is not a valid directory\n"; exit 1
     | EmitFiles.InvalidFile f ->

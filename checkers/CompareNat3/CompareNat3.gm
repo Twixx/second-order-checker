@@ -1,0 +1,18 @@
+(* ペアノ自然数の和と積 *)
+
+[Syntax]
+
+n in Nat ::= Z
+          |  S(n)
+
+[Judgments]
+
+Lt(n, n)
+
+[Rules]
+-------------------L-Succ
+Lt(n1, S(n1))
+;
+Lt(n1, n2)
+---------------L-SuccR
+Lt(n1, S(n2))

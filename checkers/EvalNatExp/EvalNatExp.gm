@@ -1,0 +1,56 @@
+(* ペアノ自然数の和と積 *)
+
+[Syntax]
+
+n in Nat ::= Z
+          |  S(n)
+
+e in Exp ::= n
+          |  P(e,e)
+          |  M(e,e)
+
+(*
+  Nat, Exp, n:Nat, m:Nat, Z:Nat[], S:Nat[Nat], Nat <: Exp,
+*)
+
+[Judgments]
+
+(* セミコロンは入力と出力の区切り．宣言にだけ必要 *)
+
+EvalTo(e, n)
+PlusIs(n, n, n)
+MultIs(n, n, n)
+
+[Rules]
+
+-------------E-Const
+EvalTo(n1, n1)
+;
+
+EvalTo(e1, n1) EvalTo(e2, n2) PlusIs(n1, n2, n3)
+-------------------------------------------------E-Plus
+EvalTo(P(e1, e2), n3)
+;
+
+EvalTo(e1, n1) EvalTo(e2, n2) MultIs(n1, n2, n3)
+-------------------------------------------------E-Times
+EvalTo(M(e1, e2), n3)
+;
+
+-----------------P-Zero
+PlusIs(Z, n1, n1)
+;
+
+PlusIs(n1, n2, n3)
+---------------------------P-Succ
+PlusIs(S(n1), n2, S(n3))
+;
+
+-----------------T-Zero
+MultIs(Z, n1, Z)
+;
+
+MultIs(n1, n2, n3) PlusIs(n2, n3, n4)
+---------------------------------------T-Succ
+MultIs(S(n1), n2, n4)
+

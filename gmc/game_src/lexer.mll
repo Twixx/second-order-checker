@@ -36,6 +36,8 @@ rule token = parse
     | "," { COMA }
     | "<" { LANGLE }
     | ">" { RANGLE }
+    | "(" { LPAREN }
+    | ")" { RPAREN }
     | "by" { BY }
     | "(*" { comment 1 lexbuf }
     (* lowercase names *)

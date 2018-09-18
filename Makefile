@@ -13,7 +13,7 @@ DEFAULT_DIR := $(realpath $(GMC_DIR)/game_src)
 
 FILE_NAMES := ast.ml checker.ml unify.ml
 GEN_FILES := $(addprefix src/,$(FILE_NAMES))
-SRC_FILES := local_parser.mly
+SRC_FILES := local_parser.mly lexemes.ml
 CHECKER_TARGET := main.native
 
 all: $(addsuffix /$(CHECKER_TARGET),$(CHECKERS)) game_maker

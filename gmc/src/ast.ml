@@ -12,7 +12,6 @@ type context = (mvar * info) list
 (* Parameter symbol + bound variables like t[x, y] *)
 type ctor_parameter = symbol * (mvar * info) list * info
 type ctor = string * context * ctor_parameter list
-
 type syncat_def =
     | CtorDef of ctor * info
     | Symbol of symbol * info
@@ -20,7 +19,7 @@ type syncat_def =
 type syncat =
     {   syn_symbols : (string * info) list;
         var_symbols : (string * info) list;
-        catname    : string * info;
+        catname     : string * info;
         defs        : syncat_def list;
     }
 
@@ -28,19 +27,15 @@ type syncat =
 type judgment = string * (symbol * info) list * info
 
 (* Rules *)
-type variable = symbol * int
+type variable = symbol * int * int
 type rule_name = string
 
 (* Expression in rule definiton *)
 (* Bound parameters cannot be an expression *)
 type expr =
     | Ctor of string * context * (expr * info) list
-    | Var of variable * var_arg list
-
-(* Parameters of a variable are either expressions or a bound parameters *)
-and var_arg =
-    | Expr of expr * info
-    | Bound of mvar * info
+    | Bool of bool
+    | Var of variable * (expr * info) list
 
 type judg_expr = string * (expr * info) list
 

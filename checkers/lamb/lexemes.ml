@@ -5,7 +5,5 @@ let v = [
     ("letrec", LETREC);
     ("=", EQ);
     ("in", IN);
-    ("(", LPAREN);
-    (")", RPAREN);
     ("->", IS);
 ]

@@ -1,0 +1,33 @@
+(* ペアノ自然数の和と積，大小比較 *)
+
+[Syntax]
+
+n in Nat ::= Z
+          |  S(n)
+
+(*
+  Nat, n:Nat, Z:Nat[], S:Nat[Nat]
+*)
+
+[Judgments]
+
+(* セミコロンは入力と出力の区切り．宣言にだけ必要 *)
+
+PlusIs(n, n, n)
+MultIs(n, n, n)
+
+[Rules]
+
+----------------P-Zero
+PlusIs(Z, n1, n1)
+;
+PlusIs(n1, n2, n3)
+------------------------P-Succ
+PlusIs(S(n1), n2, S(n3))
+;
+----------------T-Zero
+MultIs(Z, n3, Z)
+;
+MultIs(n1, n2, n3) PlusIs(n2, n3, n4)
+-----------------------------------------T-Succ
+MultIs(S(n1), n2, n4)

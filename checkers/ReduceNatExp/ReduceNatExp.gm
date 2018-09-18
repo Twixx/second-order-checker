@@ -1,0 +1,117 @@
+(* ペアノ自然数の和と積 *)
+
+[Syntax]
+
+n in Nat ::= Z
+          |  S(n)
+
+e in Exp ::= n
+          |  P(e,e)
+          |  M(e,e)
+
+(*
+  Nat, Exp, n:Nat, m:Nat, Z:Nat[], S:Nat[Nat], Nat <: Exp,
+*)
+
+[Judgments]
+
+(* セミコロンは入力と出力の区切り．宣言にだけ必要 *)
+
+OneStepTo(e, e)        (*  e ---> e *)
+OneStepToD(e, e)       (*  e -d-> e *)
+MultiStepTo(e, e)      (*  e -*-> e *)
+PlusIs(n, n, n)
+MultIs(n, n, n)
+
+[Rules]
+
+PlusIs(n1, n2, n3)
+-------------------R-Plus
+OneStepTo(P(n1, n2), n3)
+;
+
+MultIs(n1, n2, n3)
+---------------------------R-Times
+OneStepTo(M(n1, n2), n3)
+;
+OneStepTo(e1, e1')
+-------------------------------R-PlusL
+OneStepTo(P(e1, e2), P(e1', e2))
+;
+
+OneStepTo(e2, e2')
+-----------------------------------R-PlusR
+OneStepTo(P(e1, e2), P(e1, e2'))
+;
+
+OneStepTo(e1, e1')
+----------------------------------R-TimesL
+OneStepTo(M(e1, e2), M(e1', e2))
+;
+
+OneStepTo(e2, e2')
+--------------R-TimesR
+OneStepTo(M(e1, e2), M(e1, e2'))
+;
+
+PlusIs(n1, n2, n3)
+----------------------------DR-Plus
+OneStepToD(P(n1, n2), n3)
+;
+
+ MultIs(n1, n2, n3)
+-------------------------------DR-Times
+OneStepToD(M(n1, n2), n3)
+;
+
+OneStepToD(e1, e1')
+-----------------------------------DR-PlusL
+OneStepToD(P(e1, e2), P(e1', e2))
+;
+
+OneStepToD(e2, e2')
+------------------------------------DR-PlusR
+OneStepToD(P(n1, e2), P(n1, e2'))
+;
+
+OneStepToD(e1, e1')
+------------------------------------DR-TimesL
+OneStepToD(M(e1, e2), M(e1', e2))
+;
+
+OneStepToD(e2, e2')
+------------------------------------DR-TimesR
+OneStepToD(M(n1, e2), M(n1, e2'))
+;
+
+---------------------------MR-Zero
+MultiStepTo(e, e)
+;
+
+MultiStepTo(e, e') MultiStepTo(e', e'')
+------------------------------------------MR-Multi
+MultiStepTo(e, e'')
+;
+
+OneStepTo(e, e')
+-----------------------MR-One
+MultiStepTo(e, e')
+;
+
+------------------------P-Zero
+PlusIs(Z, n, n)
+;
+
+PlusIs(n1, n2, n)
+----------------------------P-Succ
+PlusIs(S(n1), n2, S(n))
+;
+
+-----------------------T-Zero
+MultIs(Z, n, Z)
+;
+
+MultIs(n1, n2, n3) PlusIs(n2, n3, n4)
+----------------------------------------T-Succ
+MultIs(S(n1), n2, n4)
+

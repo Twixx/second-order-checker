@@ -6,7 +6,7 @@ exception InvalidRulename of string * info
 exception PremError of int * int
 exception AbsError of int * int * info
 exception JudgError of info
-exception UnknownError
+exception UnknownError of int
 
 let check_qexprs max_vars f stream =
     let vars = Array.make max_vars (Proj 0) in
@@ -54,7 +54,7 @@ let rec check_ast (concl, (rulename, rpos) , premises, pos) threshold =
         | JudgError (pos) ->
                 Printf.printf "At %s:\nWrong judgement\n"
                 (print_info pos)
-        | UnknownError ->
-                print_string "Internal error (it can happen when the parser is incorrect)\n"
+        | UnknownError i ->
+                Printf.printf "Internal error checker.ml line %i (it can happen when the parser is incorrect)\n" i
 
 

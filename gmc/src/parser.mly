@@ -1,5 +1,5 @@
 %token SHEADER JHEADER RHEADER
-%token IN WITH VAR
+%token IN WITH VAR TRUE FALSE
 %token <string> LCID UCID RULENAME
 %token DEF
 %token LPAREN RPAREN
@@ -7,12 +7,14 @@
 %token LBRACKET RBRACKET
 %token OR
 %token SEMI COMA
-%token <string * int> VARNAME
+%token <string * int * int> VARNAME
 %token <Ast.qexp list> QEXP
 %token EOF
 
 %start entrypoint
 %type <Ast.game> entrypoint
+%type <Ast.variable> varname
+
 %%
 
 entrypoint:
@@ -42,6 +44,7 @@ syncat:
 symbol_list:
     symb = LCID { [(symb, ($startpos, $endpos))] }
     | s = LCID COMA l = symbol_list { (s, ($startpos(s), $endpos(s))) :: l}
+    | s = LCID SEMI l = symbol_list { (s, ($startpos(s), $endpos(s))) :: l}
 
 var_symbols:
     (* empty *) { [] }
@@ -127,25 +130,18 @@ expr:
         (Ast.Ctor (name, vars, l), info)
 
     }
-    | v = VARNAME params = var_params
+    | TRUE vars = meta_par { (Ast.Bool true, ($startpos, $endpos)) }
+    | FALSE vars = meta_par { (Ast.Bool false, ($startpos, $endpos)) }
+    | v = varname params = var_params
     {
             let info = ($startpos, $endpos) in
             (Ast.Var (v, params), info)
     }
 
+varname:
+    name = LCID { (name, -1, 0) }
+    | v = VARNAME { v }
+
 var_params:
     (* empty *) { [] }
-    | LBRACKET l = separated_list(COMA, var_param) RBRACKET { l }
-
-var_param:
-    | e = expr
-    {
-            let (expr, info) = (e) in
-            let info = ($startpos, $endpos) in
-            Ast.Expr (expr, info)
-    }
-    | id = LCID
-    {
-        let info = ($startpos, $endpos) in
-        Ast.Bound (id, info)
-    }
+    | LBRACKET l = separated_list(COMA, expr) RBRACKET { l }

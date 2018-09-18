@@ -1,4 +1,4 @@
-%token LAMBDA DOT LETREC IN EQ IS LPAREN RPAREN
+%token LAMBDA DOT LETREC IN EQ IS
 %%
 %public judgment:
     e1 = term IS e2 = term

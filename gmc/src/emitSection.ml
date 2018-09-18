@@ -29,6 +29,9 @@ let builtin_closed t =
 
 let builtin_shift = builtin_closed
 
+let shift_builtin_ctor_ast t =
+    sprintf "| %s _ -> node.term" t.bltin_term
+
 let head_normalize_builtin_fun t =
     sprintf "| %s c -> %s c" t.bltin_ctx t.bltin_create_fn
 
@@ -155,6 +158,8 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
                 else
                     sprintf "%s (%s)" ctors.(id).create_fn
                         (String.concat ", " (List.map emit_expr exprs))
+        | Bool (cat_id, b) ->
+                sprintf "%s %s" builtins.(cat_id).bltin_create_fn (string_of_bool b)
         | Var (var_id, params) ->
                 sprintf "<meta_fname> (%i, [%s])" var_id
                     (String.concat "; " (List.map emit_expr params))
@@ -187,7 +192,7 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
             let check = sprintf "\nif (ctx_len + concl_len) <> %i then raise (AbsError (ctx_len + concl_len, %i, pos));" bound bound in
             let body, cons = gen_judgexpr_match i bound (id, exprs) in
             let new_bodies = (decomp ^ check ^ body) :: bodies in
-            let new_consts = cons @ consts in
+            let new_consts = List.rev_append cons consts in
             let new_match_l = (sprintf "j%i" i) :: match_l in
             gen_premises (i + 1) new_bodies new_consts new_match_l qexps tl
         | Game.QExp e :: tl ->
@@ -231,7 +236,7 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
     let qexps_bodies = List.map (concat_qexp "") qexps in
     let qexps_body = String.concat " &&" qexps_bodies in
     let match_var i cat =
-        sprintf "\nlet v%i = match vars.(%i) with %s v -> v | _ -> raise UnknownError in" i i builtins.(cat).bltin_ctx
+        sprintf "\nlet v%i = match vars.(%i) with <closed> ({ Ast.term = %s v }) -> v | _ -> raise (UnknownError __LINE__) in" i i builtins.(cat).bltin_term
     in
     let build_vars = QMap.fold (fun k v vars -> vars ^ (match_var k v)) qmap "" in
     let fun_def = sprintf "\n|>\nlet check_qexpr vars =%s\nin check_qexprs %i check_qexpr" (indent (build_vars ^ qexps_body)) m in

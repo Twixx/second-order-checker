@@ -15,7 +15,10 @@
             { pos with pos_lnum = pos.pos_lnum + 1;
                 pos_bol = pos.pos_cnum }
 
-    let build_var name i = (name, if i = "" then (-1) else int_of_string i)
+    let build_var name i p =
+        if i = "" then (name, -1, String.length p)
+        else (name, int_of_string i, String.length p)
+
     let buffer = Buffer.create 8
 }
 
@@ -36,11 +39,15 @@ rule token = parse
     | "[Rules]"                   { RHEADER }
     | "with"                      { WITH }
     | "var"                       { VAR }
+    | "true"                      { TRUE }
+    | "false"                     { FALSE }
     | '-'+ (uppercase (alphanum | '-')* as id)
                                   { RULENAME id }
     | uppercase alpha* as id      { UCID id }
-    | lowercase+ as name (digit+ as i)
-                                  { VARNAME (build_var name i) }
+    | lowercase+ as name (digit+ as i) ('\''* as p)
+                                  { VARNAME (build_var name i p) }
+    | lowercase+ as name ('\''+ as p)
+                                  { VARNAME (build_var name "" p) }
     | lowercase+ as id            { LCID id }
     | ';'                         { SEMI }
     | ','                         { COMA }
@@ -69,11 +76,11 @@ and qexpr acc = parse
             if Buffer.length buffer = 0 then QEXP acc
             else QEXP (acc @ [QStr (Buffer.contents buffer)])
     }
-    | '$' (lowercase+ as name) (digit* as i) {
+    | '$' (lowercase+ as name) (digit* as i) ('\''* as p) {
             (* Create a string a code if the buffer is not empty,
             * Create the variable, reset the buffer *)
-            let name, i = build_var name i in
-            let v = Ast.QVar ((name, i), get_info lexbuf) in
+            let var = build_var name i p in
+            let v = Ast.QVar (var, get_info lexbuf) in
             if Buffer.length buffer = 0 then qexpr (acc @ [v]) lexbuf
             else
                 let str = Buffer.contents buffer in

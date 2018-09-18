@@ -141,6 +141,7 @@ module EmitFiles (G : Game.GAME) = struct
         emit_builtin_pattern "<builtin_functions>" builtin_functions |>
         emit_judg_pattern "<shift_judg_ast>" shift_judg_ast |>
         emit_ctor_pattern "<shift_ctor_ast>" shift_ctor_ast |>
+        emit_builtin_pattern "<shift_builtin_ctor_ast>" shift_builtin_ctor_ast |>
         replace_builtin_names
 
     let emit_unify unify =

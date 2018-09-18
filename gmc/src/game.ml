@@ -20,6 +20,8 @@ exception WrongMetaArityCtor of string * int * int * info
 exception InvalidCat of string * string * info
 exception RuleAlreadyDefined of string * info
 exception UnboundParam of string * info
+exception InvalidBoundParam of string * info
+exception UndefinedBool of info
 
 type symbol_id = int
 type ctor_id = int
@@ -29,6 +31,7 @@ type cat_id = int
 type var_id = int
 and expr =
     | Ctor of ctor_id * expr list
+    | Bool of cat_id * bool
     | Var of var_id * expr list
     | Bound of cat_id * cat_id * int
 
@@ -61,8 +64,6 @@ module MakeGame (G : GAME_AST) : GAME = struct
     let is_valid_builtin_name = function
         | "int" | "bool" | "float" -> true
         | _ -> false
-
-    let is_lowercase_name name = name.[0] = (Char.lowercase_ascii name.[0])
 
     (* Build the table that associates category ID with category *)
     (* Table to keep track of all the names already defined and associated IDs *)
@@ -174,6 +175,19 @@ module MakeGame (G : GAME_AST) : GAME = struct
         let ctors_infos = Array.of_list List.(concat (mapi get_defs def_list)) in
         (cat_names, builtin_num, sym_cats, var_tags, var_cat_defs, ctors_infos)
 
+    (* look for bool builtin to add constructors for true/false *)
+    let bool_cat =
+        let rec lookup_bool n =
+            if n = builtin_num then -1
+            else if cat_names.(n) = "bool" then n
+            else lookup_bool (n + 1)
+        in
+        lookup_bool 0
+
+    let get_bool_cat pos =
+        if bool_cat >=0 then bool_cat
+        else raise (UndefinedBool pos)
+
     let ctor_num = Array.length ctor_infos
 
     let get_ctor_id name pos =
@@ -243,7 +257,7 @@ module MakeGame (G : GAME_AST) : GAME = struct
                 let id = match ids with [] -> 0 | p :: _ -> p in
                 let new_ids = (id + (List.length par)) :: ids in
                 (* Build the constructors from all the parents *)
-                let new_ctors = (List.map (fun id -> (id, i)) par) @ ctors in
+                let new_ctors = List.rev_append (List.map (fun id -> (id, i)) par) ctors in
                 gen_ctors (i + 1) new_ids new_ctors
         in
         (* The IDs array should start at 0 *)
@@ -255,8 +269,9 @@ module MakeGame (G : GAME_AST) : GAME = struct
         let get_sub_id id1 id2 =
             (* Get the index of the parent category in the parent list *)
             let rec lookup i = function
-                | id1 :: tl -> i
-                | l -> lookup (i + 1) l
+                | hd :: tl when hd = id1 -> i
+                | hd :: tl -> lookup (i + 1) tl
+                | _ -> raise Not_found
             in
             ctor_num + sub_ctors_ids.(id2) + (lookup 0 parents.(id2))
             (* Build the injection constructor id *)
@@ -352,27 +367,27 @@ module MakeGame (G : GAME_AST) : GAME = struct
                 rule_set := RuleSet.add rule !rule_set;
         in
         (* Find the most common category for a list of parameters *)
-        let rec cat_union (name, i) pos current cats2 =
+        let rec cat_union (name, i, p) pos current cats2 =
             match current, cats2 with
             | [], [] -> []
             | cid :: tl, (cid2, pos) :: tl2 ->
-                    (common_cat pos cid cid2) :: cat_union (name, i) pos tl tl2
+                    (common_cat pos cid cid2) :: cat_union (name, i, p) pos tl tl2
             | _ ->
                     let ar1 = List.length current in
                     let ar2 = List.length cats2 in
-                    raise (WrongArityVar ((name, i), ar1, ar2, pos))
+                    raise (WrongArityVar ((name, i, p), ar1, ar2, pos))
         in
         (* Update the informations of a variable, returns the id *)
-        let add_var name pos (id, i) (cat, cats) =
-            match Hashtbl.find_opt local_var_names (id, i) with
+        let add_var name pos (id, i, p) (cat, cats) =
+            match Hashtbl.find_opt local_var_names (id, i, p) with
             | None ->
                     let count = Hashtbl.length local_var_names in
                     let cats = fst (List.split cats) in
-                    Hashtbl.add local_var_names (id, i) (count, cat, cats);
+                    Hashtbl.add local_var_names (id, i, p) (count, cat, cats);
                     count
             | Some (vid, ccat, current) ->
-                    let new_cats = cat_union (name, i) pos current cats in
-                    Hashtbl.replace local_var_names (id, i) (vid, ccat, new_cats);
+                    let new_cats = cat_union (name, i, p) pos current cats in
+                    Hashtbl.replace local_var_names (id, i, p) (vid, ccat, new_cats);
                     vid
         in
         (* Check that all the metavars of a context are of the same categories
@@ -390,14 +405,15 @@ module MakeGame (G : GAME_AST) : GAME = struct
                     raise (WrongMetaArityCtor (name, ctx_len, var_len, pos));
         in
         (* Check an expression given a context, return the category and the new
-         * node *)
-        let rec check_expr ctx expr pos =
+         * node. bound_allowed is set to false when the expression cannot be a
+         * bound variable *)
+        let rec check_expr bound_allowed ctx expr pos =
             let check_ctor_params name metavars params args =
                 let check_ctor_param (param, pos) (expected_cid, bound) =
                     (* Create the new context *)
                     let bound_meta = List.(map (nth metavars) bound) in
                     (* Get the category of the expression *)
-                    let cid, expr = check_expr (bound_meta @ ctx) param pos in
+                    let cid, expr = check_expr false (bound_meta @ ctx) param pos in
                     (* Compare it *)
                     if is_subcat expected_cid cid then expr
                     else raise (InvalidCat (cat_names.(expected_cid), cat_names.(cid), pos))
@@ -407,22 +423,21 @@ module MakeGame (G : GAME_AST) : GAME = struct
                     let ar, ar2 = List.(length params, length args) in
                     raise (WrongArityCtor (name, ar, ar2, pos))
             in
-            let check_var_param var =
-                let rec lookup pos n ctx id =
-                    match ctx with
-                    | [] -> raise (UnboundParam (id, pos))
-                    | (h, _) :: t -> if h = id then n else lookup pos (n + 1) t id
-                in
-                match var with
-                | Ast.Bound (str, pos) ->
-                        let vid = get_var_id str pos in
-                        let tag, cat = (var_tags.(vid), var_cats.(vid)) in
-                        ((cat, pos), Bound (tag, cat, lookup pos 0 ctx str))
-                | Ast.Expr (expr, pos) ->
-                        let cid, expr = check_expr ctx expr pos in
-                        ((cid, pos), expr)
+            let rec check_var_params cids exprs = function
+                | [] -> (List.(rev cids, rev exprs))
+                | (param, pos) :: tl ->
+                    let cid, expr = check_expr true ctx param pos in
+                    check_var_params ((cid, pos) :: cids) (expr :: exprs) tl
+            in
+            let rec lookup n ctx id =
+                match ctx with
+                | [] -> raise (UnboundParam (id, pos))
+                | (h, _) :: t -> if h = id then n else lookup (n + 1) t id
             in
             match expr with
+            | Ast.Bool b ->
+                    let cat_id = get_bool_cat pos in
+                    (cat_id, Bool (cat_id, b))
             | Ast.Ctor (name, vars, params) ->
                     let id = get_ctor_id name pos in
                     let _, cid, expected_ctx, args = ctor_infos.(id) in
@@ -430,12 +445,20 @@ module MakeGame (G : GAME_AST) : GAME = struct
                     check_ctx name pos expected_ctx vars;
                     (* Check the parameters *)
                     (cid, Ctor (id, check_ctor_params name vars params args))
-            | Ast.Var ((name, i), params) ->
-                    let id = get_sym_id name pos in
-                    let cids, exprs = List.split (List.map check_var_param params) in
-                    let cid = sym_cats.(id) in
-                    let var_id = add_var name pos (id, i) (cid, cids) in
-                    (cid, Var (var_id, exprs))
+            | Ast.Var ((name, i, p), params) ->
+                    try
+                        let id = get_sym_id name pos in
+                        let cids, exprs = check_var_params [] [] params in
+                        let cid = sym_cats.(id) in
+                        let var_id = add_var name pos (id, i, p) (cid, cids) in
+                        (cid, Var (var_id, exprs))
+                    with UndefinedSymbol _ ->
+                        let vid = get_var_id name pos in
+                        if bound_allowed && i = -1 && p = 0 && List.length params = 0 then
+                            let tag, cat = (var_tags.(vid), var_cats.(vid)) in
+                            (cat, Bound (tag, cat, lookup 0 ctx name))
+                        else
+                            raise (InvalidBoundParam (name, pos))
         in
         (* Check the judgements *)
         let check_judg_expr ctx ((name, params), pos) =
@@ -445,7 +468,7 @@ module MakeGame (G : GAME_AST) : GAME = struct
             (* Get the actual categories of arguments and compare them *)
             (* If arity or category is different, stop *)
             let check expected_cid (param, pos) =
-                let cid, expr = check_expr ctx param pos in
+                let cid, expr = check_expr false ctx param pos in
                 if is_subcat expected_cid cid then expr
                 else raise (InvalidCat (cat_names.(cid), cat_names.(expected_cid), pos))
             in
@@ -461,16 +484,16 @@ module MakeGame (G : GAME_AST) : GAME = struct
         in
         (* Check a quoted expression: it should be of a built-in category *)
         let rec check_qexpr = function
-            | Ast.QVar ((name, i), pos) :: tl ->
+            | Ast.QVar ((name, i, p), pos) :: tl ->
                     let id = get_sym_id name pos in
                     let cid = sym_cats.(id) in
                     let vid =
-                        begin match Hashtbl.find_opt local_var_names (id, i) with
+                        begin match Hashtbl.find_opt local_var_names (id, i, p) with
                         | Some (vid, _, _) -> vid
-                        | None -> raise (UndeclaredQVar ((name, i), pos))
+                        | None -> raise (UndeclaredQVar ((name, i, p), pos))
                         end
                     in
-                    if not (is_builtin cid) then raise (InvalidQVar ((name,i), cat_names.(cid), pos));
+                    if not (is_builtin cid) then raise (InvalidQVar ((name, i, p), cat_names.(cid), pos));
                     QVar (cid, vid) :: check_qexpr tl
             | Ast.QStr hd :: tl -> QStr hd :: check_qexpr tl
             | [] -> []
@@ -501,7 +524,8 @@ module MakeGame (G : GAME_AST) : GAME = struct
                     let cat, expected_cats = infered_cats.(vid) in
                     let params = List.map2 (inject_expr infered_cats) expected_cats exprs in
                     build_ctor_chain expected_cat cat (Var (vid, params))
-            | Bound (_, cat, _) -> build_ctor_chain expected_cat cat expr
+            | Bound (_, cat, _)
+            | Bool (cat, _) -> build_ctor_chain expected_cat cat expr
         in
         let inject_topexpr var_names (arity, id, exprs) =
             let expect_cats = snd judg_infos.(id) in

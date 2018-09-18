@@ -106,6 +106,7 @@ and shift_node free_idx node =
     let updated =
         match node.term with
         <shift_ctor_ast>
+        <shift_builtin_ctor_ast>
         | <var> (tag, id) when id < 0 -> <var> (tag, free_idx - id)
         | <var> _ | <metavar> _ -> node.term
     in

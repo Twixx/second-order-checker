@@ -12,7 +12,7 @@
 %token LBRA RBRA
 %token LSBRA RSBRA
 %token BY
-%token SEMI COMA
+%token SEMI COMA LPAREN RPAREN
 %token <int> INTL
 %token EOF
 %token <string> LCID UCID ID
