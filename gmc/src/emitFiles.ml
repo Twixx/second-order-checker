@@ -12,8 +12,6 @@ module EmitFiles (G : Game.GAME) = struct
     let _ = List.iter (fun (kwd, sub) -> Hashtbl.add builtin_subs kwd sub)
                 [ "<metavar>", "Metavar_";
                   "<var>",  "Var_";
-                  "<var_fname>",  "var_";
-                  "<meta_fname>", "meta_";
                   "<proj>", "Proj";
                   "<closed>", "Closed_";
                   "<cvar>", "CVar_";
@@ -47,8 +45,7 @@ module EmitFiles (G : Game.GAME) = struct
           ctx_name = ctx_from_ctor name;
           arity = List.length pars;
           var_tags = List.(map (fun (_, l) -> map (nth ctx) l) pars);
-          var_ar = List.(map (fun (_, l) -> length l) pars);
-          create_fn = fn_from_ctor name; }
+          var_ar = List.(map (fun (_, l) -> length l) pars); }
 
     (* Same for the injection constructors *)
     let build_sub_ctor (id1, id2) =
@@ -57,7 +54,6 @@ module EmitFiles (G : Game.GAME) = struct
         let name = n1 ^ "_of_" ^ n2 in
         { term_name = term_from_ctor name;
           ctx_name = ctx_from_ctor name;
-          create_fn = fn_from_ctor name;
           arity = 1; var_ar = [0]; var_tags = [[]]; }
 
     (* Merge the constructors and the injection ones *)
@@ -74,8 +70,7 @@ module EmitFiles (G : Game.GAME) = struct
             let str = builtin_from_catname G.cat_names.(i) in
             {  bltin_term = builtin_from_catname str;
                bltin_ctx = ctx_from_ctor str;
-               bltin_type = G.cat_names.(i);
-               bltin_create_fn = fn_from_ctor str; }
+               bltin_type = G.cat_names.(i); }
         in
         Array.init G.builtin_num build_builtin
 
@@ -135,10 +130,8 @@ module EmitFiles (G : Game.GAME) = struct
         emit_cat_pattern "<term_tags>" (fun t -> "| " ^ t) |>
         emit_ctor_pattern "<ctx_def>" ctx_def |>
         emit_judg_pattern "<judg_def>" judg_def |>
-        emit_ctor_pattern "<ctor_functions>" ctor_function |>
         emit_builtin_pattern "<builtin_term_def>" builtin_term_def |>
         emit_builtin_pattern "<builtin_ctx_def>" builtin_ctx_def |>
-        emit_builtin_pattern "<builtin_functions>" builtin_functions |>
         emit_judg_pattern "<shift_judg_ast>" shift_judg_ast |>
         emit_ctor_pattern "<shift_ctor_ast>" shift_ctor_ast |>
         emit_builtin_pattern "<shift_builtin_ctor_ast>" shift_builtin_ctor_ast |>

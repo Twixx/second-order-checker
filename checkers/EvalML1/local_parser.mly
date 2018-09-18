@@ -11,14 +11,14 @@
 
 drop_ctx:
     Exp EVALTO Val { Ast.(EvalTo($1, $3)) }
-  | SInt PLUS SInt IS SInt { Ast.(AppBOp(node Plus, node (Value_of_int $1), node (Value_of_int $3), node (Value_of_int $5))) }
-  | SInt MULT SInt IS SInt { Ast.(AppBOp(node Mult, node (Value_of_int $1), node (Value_of_int $3), node (Value_of_int $5))) }
-  | SInt MINUS SInt IS SInt { Ast.(AppBOp(node Minus, node (Value_of_int $1), node (Value_of_int $3), node (Value_of_int $5))) }
-  | SInt LESS THAN SInt IS TRUE { Ast.(AppBOp(node Lt, node (Value_of_int $1), node (Value_of_int $4), node (Value_of_bool (node (Bool true))))) }
-  | SInt LESS THAN SInt IS FALSE { Ast.(AppBOp(node Lt, node (Value_of_int $1), node (Value_of_int $4), node (Value_of_bool (node (Bool false))))) }
+  | SInt PLUS SInt IS SInt { Ast.(AppBOp(Plus, (Value_of_int $1), (Value_of_int $3), (Value_of_int $5))) }
+  | SInt MULT SInt IS SInt { Ast.(AppBOp(Mult, (Value_of_int $1), (Value_of_int $3), (Value_of_int $5))) }
+  | SInt MINUS SInt IS SInt { Ast.(AppBOp(Minus, (Value_of_int $1), (Value_of_int $3), (Value_of_int $5))) }
+  | SInt LESS THAN SInt IS TRUE { Ast.(AppBOp(Lt, (Value_of_int $1), (Value_of_int $4), (Value_of_bool ((Bool true))))) }
+  | SInt LESS THAN SInt IS FALSE { Ast.(AppBOp(Lt, (Value_of_int $1), (Value_of_int $4), (Value_of_bool ((Bool false))))) }
   /* abbreviations for less than */
-  | SInt IS LESS THAN SInt { Ast.(AppBOp(node Lt, node (Value_of_int $1), node (Value_of_int $5), node (Value_of_bool (node (Bool true))))) }
-  | SInt IS NOT LESS THAN SInt { Ast.(AppBOp(node Lt, node (Value_of_int $1), node (Value_of_int $6), node (Value_of_bool ( node (Bool false))))) }
+  | SInt IS LESS THAN SInt { Ast.(AppBOp(Lt, (Value_of_int $1), (Value_of_int $5), (Value_of_bool ((Bool true))))) }
+  | SInt IS NOT LESS THAN SInt { Ast.(AppBOp(Lt, (Value_of_int $1), (Value_of_int $6), (Value_of_bool ( (Bool false))))) }
 
   | Exp error { errAt 2 "Syntax error: 'evalto' expected" }
   | Exp EVALTO error { errAt 3 "Syntax error: value expected" }
@@ -57,16 +57,16 @@ partialj :
 Exp:
   | LongExp { $1 }
   | Exp1 { $1 }
-  | Exp1 BinOp1 LongExp { Ast.(node (BinOp($2, $1, $3))) }
-  | Exp2 BinOp2 LongExp { Ast.(node (BinOp($2, $1, $3))) }
-  | Exp3 BinOp3 LongExp { Ast.(node (BinOp($2, $1, $3))) }
+  | Exp1 BinOp1 LongExp { Ast.((BinOp($2, $1, $3))) }
+  | Exp2 BinOp2 LongExp { Ast.((BinOp($2, $1, $3))) }
+  | Exp3 BinOp3 LongExp { Ast.((BinOp($2, $1, $3))) }
 
   | Exp1 BinOp1 error { errAt 3 "Syntax error: expression expected" }
   | Exp2 BinOp2 error { errAt 3 "Syntax error: expression expected" }
   | Exp3 BinOp3 error { errAt 3 "Syntax error: expression expected" }
 
 LongExp:
-  | IF Exp THEN Exp ELSE Exp { Ast.(node (If ($2, $4, $6))) }
+  | IF Exp THEN Exp ELSE Exp { Ast.((If ($2, $4, $6))) }
 
   | IF error { errAt 2 "Syntax error: expression expected" }
   | IF Exp error { errAt 3 "Syntax error: 'then' expected" }
@@ -75,41 +75,41 @@ LongExp:
   | IF Exp THEN Exp ELSE error { errAt 6 "Syntax error: expression expected" }
 
 Exp1:
-  | Exp1 BinOp1 Exp2 { Ast.(node (BinOp($2, $1, $3))) }
+  | Exp1 BinOp1 Exp2 { Ast.((BinOp($2, $1, $3))) }
   | Exp2 { $1 }
 
 Exp2:
-  | Exp2 BinOp2 Exp3 { Ast.(node (BinOp($2, $1, $3))) }
+  | Exp2 BinOp2 Exp3 { Ast.((BinOp($2, $1, $3))) }
   | Exp3 { $1 }
 
 Exp3:
-    Exp3 BinOp3 AExp { Ast.(node (BinOp($2, $1, $3))) }
+    Exp3 BinOp3 AExp { Ast.((BinOp($2, $1, $3))) }
   | AExp { $1 }
 
 BinOp1:
-    LANGLE { Ast.(node Lt) }
+    LANGLE { Ast.(Lt) }
 
 BinOp2:
-    CROSS { Ast.(node Plus) }
-  | HYPHEN { Ast.(node Minus) }
+    CROSS { Ast.(Plus) }
+  | HYPHEN { Ast.(Minus) }
 
 BinOp3:
-    AST { Ast.(node Mult) }
+    AST { Ast.(Mult) }
 
 AExp:
-    SInt { Ast.(node (Exp_of_int $1)) }
-  | TRUE { Ast.(node (Exp_of_bool (node (Bool true)))) }
-  | FALSE { Ast.(node (Exp_of_bool (node (Bool false)))) }
+    SInt { Ast.((Exp_of_int $1)) }
+  | TRUE { Ast.((Exp_of_bool ((Bool true)))) }
+  | FALSE { Ast.((Exp_of_bool ((Bool false)))) }
   | LPAREN Exp RPAREN { $2 }
 
   | LPAREN error { errAt 2 "Syntax error: expression expected" }
   | LPAREN Exp error { errBtw 1 3 "Syntax error: unmatched parenthesis" }
 
 SInt: /* signed int */
-    INTL { Ast.(node (Int $1)) }
-  | HYPHEN INTL { Ast.(node (Int (- $2))) }
+    INTL { Ast.((Int $1)) }
+  | HYPHEN INTL { Ast.((Int (- $2))) }
 
 Val:
-    SInt { Ast.(node (Value_of_int $1)) }
-  | TRUE { Ast.(node (Value_of_bool (node (Bool true)))) }
-  | FALSE { Ast.(node (Value_of_bool ( node (Bool false)))) }
+    SInt { Ast.((Value_of_int $1)) }
+  | TRUE { Ast.((Value_of_bool ((Bool true)))) }
+  | FALSE { Ast.((Value_of_bool ( (Bool false)))) }

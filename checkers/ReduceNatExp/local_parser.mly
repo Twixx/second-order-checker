@@ -48,24 +48,24 @@ partialj:
 *)
 
 Exp:
-    Exp CROSS MExp { node (Ast.P ($1, $3)) }
+    Exp CROSS MExp { (Ast.P ($1, $3)) }
   | MExp { $1 }
   | Exp CROSS error { errAt 3 "Syntax error: expression expected" }
 
 MExp:
-    MExp AST AExp { node (Ast.M ($1, $3)) }
+    MExp AST AExp { (Ast.M ($1, $3)) }
   | AExp { $1 }
   | MExp AST error { errAt 3 "Syntax error: expression expected" }
 
 AExp:
-    Nat { node (Ast.Exp_of_Nat $1) }
+    Nat { (Ast.Exp_of_Nat $1) }
   | LPAREN Exp RPAREN { $2 }
   | LPAREN error { errAt 1 "Syntax error: expression expected" }
   | LPAREN Exp error { errBtw 1 3 "Syntax error: unmatched parenthesis" }
 
 Nat:
-    Z { node Ast.Z }
-  | S LPAREN Nat RPAREN { node (Ast.S $3) }
+    Z { Ast.Z }
+  | S LPAREN Nat RPAREN { (Ast.S $3) }
   | S LPAREN Nat error { errBtw 2 4 "Syntax error: unmatched parenthesis" }
   | S LPAREN error { errAt 3 "Syntax error: natural number expected after S(" }
   | S error { errAt 2 "Syntax error: opening parenthesis expected after S" }

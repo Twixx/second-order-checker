@@ -11,8 +11,8 @@
   | nat IS LESS THAN error { errAt 5 "Syntax error: natural number expected" }
 
 nat:
-    Z { node Ast.Z }
-  | S LPAREN nat RPAREN { node (Ast.S $3) }
+    Z { Ast.Z }
+  | S LPAREN nat RPAREN { (Ast.S $3) }
   | S LPAREN nat error { errBtw 2 4 "Syntax error: unmatched parenthesis" }
   | S LPAREN error { errAt 3 "Syntax error: natural number expected after S(" }
   | S error { errAt 2 "Syntax error: opening parenthesis expected after S" }

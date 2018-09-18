@@ -3,9 +3,6 @@
         raise (Ast.ParseError (s, Parsing.((rhs_start_pos i, rhs_end_pos j))))
 
     let errAt i s = errBtw i i s
-    let node t =
-        let info = Parsing.((symbol_start_pos (), symbol_end_pos ())) in
-        { Ast.term = t; pos = info }
 %}
 
 %token LANGLE RANGLE

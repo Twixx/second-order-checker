@@ -15,32 +15,30 @@ let pick_fresh_name () =
 
 (* Check if a term is closed or not, should be implemented in the checker in
 * the future *)
-let rec is_closed node idx =
-    match node.term with
+let rec is_closed term idx =
+    match term with
     <is_closed_fun>
     | <var> (_, id) when id >= idx -> false
-    | <var> _ | <metavar> _ <builtin_closed> -> true
+    | <var> _ | <metavar> _
+    <builtin_closed> -> true
 
 (* Shift indices by d from c index *)
-let rec shift d c node =
-    let updated =
-        match node.term with
-        <shift_fun>
-        | <var> (tag, id) when id >= c -> <var> (tag, id + d)
-        | <var> _ | <metavar> _ <builtin_shift> -> node.term
-    in
-    { node with term = updated }
+let rec shift d c term =
+    match term with
+    <shift_fun>
+    | <var> (tag, id) when id >= c -> <var> (tag, id + d)
+    | <var> _ | <metavar> _ <builtin_shift> -> term
 
 (* Head normalize
  * Since metavariables can take other metavariables as parameter, a recursive
  * call with all the previous solutions have to be done when substuting with a
  * projection *)
 let head_normalize threshold full_sols t =
-    let rec hn sols t =
+    let rec hn sols term =
         match sols with
-        | [] -> t
+        | [] -> term
         | { met = s_id; sub = ctx } :: tail ->
-                begin match t.term with
+                begin match term with
                 | <metavar> (id, par0) ->
                         if s_id = id then
                             begin match ctx with
@@ -51,7 +49,7 @@ let head_normalize threshold full_sols t =
                                      * variable in the current tree we are
                                      * checking, Adding the threshold gives us
                                      * the index in the current context *)
-                                    <var_fname> (tag, threshold + id)
+                                    <var> (tag, threshold + id)
                             | <closed> node ->
                                     node
                             (* User defined *)
@@ -59,8 +57,8 @@ let head_normalize threshold full_sols t =
                             (* Built-in *)
                             <head_normalize_builtin_fun>
                             end
-                        else hn tail t
-                | _ -> t
+                        else hn tail term
+                | _ -> term
                 end
     in hn full_sols t
 
@@ -95,7 +93,7 @@ let rec gen_projections id n k t sols =
  * of substitution as the only solution, None otherwise *)
 let rec unify_one (left, right, threshold) sols =
     let left' = head_normalize threshold sols left in
-    match left'.term, right.term with
+    match left', right with
     (* no new constraint current stream is valid *)
     | <var> (tag1, id1), <var> (tag2, id2) when id1 = id2 && tag1 = tag2 ->
             create_eos sols
@@ -105,9 +103,9 @@ let rec unify_one (left, right, threshold) sols =
             then
                 create_eos ((bind_meta id (<closed> right)) :: sols)
             else
-                let proj () = gen_projections id arity 0 right.term sols in
+                let proj () = gen_projections id arity 0 right sols in
                 let new_stream =
-                    begin match context threshold right.term with
+                    begin match context threshold right with
                     | None ->
                             proj ()
                     | Some ctx ->

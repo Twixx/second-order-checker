@@ -5,14 +5,12 @@ type ctor_infos =
       ctx_name  : string;
       arity     : int;
       var_tags  : int list list;
-      var_ar    : int list;
-      create_fn : string; }
+      var_ar    : int list; }
 
 type builtin_infos =
     { bltin_ctx         : string;
       bltin_term        : string;
-      bltin_type        : string;
-      bltin_create_fn   : string; }
+      bltin_type        : string; }
 
 (* Builtin sections *)
 let builtin_term_def t =
@@ -21,19 +19,16 @@ let builtin_term_def t =
 let builtin_ctx_def t =
     sprintf "| %s of %s" t.bltin_ctx t.bltin_type
 
-let builtin_functions t =
-    sprintf "let %s p = create_dum (%s p)" t.bltin_create_fn t.bltin_term
-
 let builtin_closed t =
     sprintf "| %s _" t.bltin_term
 
 let builtin_shift = builtin_closed
 
 let shift_builtin_ctor_ast t =
-    sprintf "| %s _ -> node.term" t.bltin_term
+    sprintf "| %s _ -> term" t.bltin_term
 
 let head_normalize_builtin_fun t =
-    sprintf "| %s c -> %s c" t.bltin_ctx t.bltin_create_fn
+    sprintf "| %s c -> %s c" t.bltin_ctx t.bltin_term
 
 let builtin_ctx_fun t =
     sprintf "| %s p -> Some (%s p)" t.bltin_term t.bltin_ctx
@@ -46,7 +41,7 @@ let judg_def (name, arity) =
     if arity = 0 then sprintf "| %s" name
     else
         sprintf "| %s of %s" name
-            (String.concat " * " (List.init arity (fun _ -> "node")))
+            (String.concat " * " (List.init arity (fun _ -> "term")))
 
 let shift_judg_ast (name, arity) =
     if arity = 0 then sprintf "| %s -> %s" name name
@@ -61,7 +56,7 @@ let term_def v =
     if v.arity = 0 then sprintf "| %s" v.term_name
     else
         sprintf "| %s of %s" v.term_name
-            (String.concat " * " (List.init v.arity (fun _ -> "node")))
+            (String.concat " * " (List.init v.arity (fun _ -> "term")))
 
 let ctx_def v =
     if v.arity = 0 then sprintf "| %s" v.ctx_name
@@ -69,16 +64,8 @@ let ctx_def v =
         sprintf "| %s of %s" v.ctx_name
             (String.concat " * " (List.init v.arity (fun _ -> "metavar")))
 
-let ctor_function v =
-    if v.arity = 0 then sprintf "let %s = create_dum %s" v.create_fn v.term_name
-    else
-        let l = List.init v.arity (sprintf "p%i") in
-        let params = String.concat ", " l in
-        sprintf "let %s (%s) = create_dum (%s (%s))"
-            v.create_fn params v.term_name params
-
 let shift_ctor_ast v =
-    if v.arity = 0 then sprintf "| %s -> node.term" v.term_name
+    if v.arity = 0 then sprintf "| %s -> term" v.term_name
     else
         let l = List.init v.arity (sprintf "t%i") in
         let params = String.concat ", " l in
@@ -96,7 +83,7 @@ let is_closed_fun v =
         sprintf "| %s (%s) -> %s" v.term_name params right
 
 let shift_fun v =
-    if v.arity = 0 then sprintf "| %s -> node.term" v.term_name
+    if v.arity = 0 then sprintf "| %s -> term" v.term_name
     else
         let l = List.init v.arity (sprintf "n%i") in
         let params = String.concat ", " l in
@@ -105,19 +92,19 @@ let shift_fun v =
         sprintf "| %s (%s) -> %s (%s)" v.term_name params v.term_name shifted
 
 let head_normalize_fun tag_names v =
-    if v.arity = 0 then sprintf "| %s -> %s" v.ctx_name v.create_fn else
+    if v.arity = 0 then sprintf "| %s -> %s" v.ctx_name v.term_name else
     let l = List.init v.arity (sprintf "m%i") in
     let params = String.concat ", " l in
     let gen_shift i = sprintf "\t\tlet par%i = List.map (shift 1 0) par%i in\n" (i + 1) i in
     let max_ar = List.fold_left max 0 v.var_ar in
     let decl = String.concat "" (List.init max_ar gen_shift) in
     let gen_vars tags =
-        let mparams = List.mapi (fun i tag -> sprintf "(<var_fname> (%s, %i)) ::" tag_names.(tag) i) (List.rev tags) in
+        let mparams = List.mapi (fun i tag -> sprintf "(<var> (%s, %i)) ::" tag_names.(tag) i) (List.rev tags) in
         String.concat " " mparams
     in
-    let meta m tags = sprintf "<meta_fname> (%s, %s par%i)" m (gen_vars tags) (List.length tags) in
+    let meta m tags = sprintf "<metavar> (%s, %s par%i)" m (gen_vars tags) (List.length tags) in
     let rparams = String.concat ", " (List.map2 meta l v.var_tags) in
-    sprintf "| %s (%s) ->\n %s\t\t%s (%s)" v.ctx_name params decl v.create_fn rparams
+    sprintf "| %s (%s) ->\n %s\t\t%s (%s)" v.ctx_name params decl v.term_name rparams
 
 let ctx_fun v =
     if v.arity = 0 then sprintf "| %s -> Some %s" v.term_name v.ctx_name else
@@ -148,23 +135,22 @@ let rule_map_list (_, _, name, enum) = sprintf "(\"%s\", %s);" name enum
 let indent = Str.global_replace (Str.regexp_string "\n") "\n    "
 let indent2 = Str.global_replace (Str.regexp_string "\n") "\n        "
 
-
 module QMap = Map.Make(struct type t = int let compare = compare end)
 let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
     let rec emit_expr expr =
         match expr with
         | Game.Ctor (id, exprs) ->
-                if exprs = [] then ctors.(id).create_fn
+                if exprs = [] then ctors.(id).term_name
                 else
-                    sprintf "%s (%s)" ctors.(id).create_fn
+                    sprintf "%s (%s)" ctors.(id).term_name
                         (String.concat ", " (List.map emit_expr exprs))
         | Bool (cat_id, b) ->
-                sprintf "%s %s" builtins.(cat_id).bltin_create_fn (string_of_bool b)
+                sprintf "%s %s" builtins.(cat_id).bltin_term (string_of_bool b)
         | Var (var_id, params) ->
-                sprintf "<meta_fname> (%i, [%s])" var_id
+                sprintf "<metavar> (%i, [%s])" var_id
                     (String.concat "; " (List.map emit_expr params))
         | Bound (tag, _, i) ->
-                sprintf"<var_fname> (%s, %i)" tags.(tag) i
+                sprintf"<var> (%s, %i)" tags.(tag) i
     in
     let gen_judgexpr_match i bound (id, exprs) =
         let gen_pattern j expr =
@@ -236,7 +222,7 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
     let qexps_bodies = List.map (concat_qexp "") qexps in
     let qexps_body = String.concat " &&" qexps_bodies in
     let match_var i cat =
-        sprintf "\nlet v%i = match vars.(%i) with <closed> ({ Ast.term = %s v }) -> v | _ -> raise (UnknownError __LINE__) in" i i builtins.(cat).bltin_term
+        sprintf "\nlet v%i = match vars.(%i) with <closed> (%s v) -> v | _ -> raise (UnknownError __LINE__) in" i i builtins.(cat).bltin_term
     in
     let build_vars = QMap.fold (fun k v vars -> vars ^ (match_var k v)) qmap "" in
     let fun_def = sprintf "\n|>\nlet check_qexpr vars =%s\nin check_qexprs %i check_qexpr" (indent (build_vars ^ qexps_body)) m in

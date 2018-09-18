@@ -10,9 +10,8 @@ type tag =
     <term_tags>
 
 type metavar = int
-type node = { term:term; pos:info }
 and term =
-    | <metavar> of metavar * node list
+    | <metavar> of metavar * term list
     | <var> of tag * int
     (* User defined *)
     <term_def>
@@ -37,24 +36,13 @@ type context =
     (* Built-in *)
     <builtin_ctx_def>
     (* For a closed term *)
-    | <closed> of node
+    | <closed> of term
 
 type sub = { met:metavar; sub:context }
 
 (* Constraint type: stands for one equation to match, right-hand side has
  * to be closed, otherwise NonMatchingProblem could be raise *)
-type constr = node * node
-
-(* Useful constructors *)
-
-(* build a term with a dummy position *)
-let dummy_info = (Lexing.dummy_pos, Lexing.dummy_pos)
-let create_dum term = { term=term; pos=dummy_info }
-
-let <var_fname> (tag, i) = create_dum (<var> (tag, i))
-let <meta_fname> (id, par) = create_dum (<metavar> (id, par))
-<ctor_functions>
-<builtin_functions>
+type constr = term * term
 
 type rule_name =
     <rule_enum>
@@ -95,22 +83,19 @@ and shift_ast free_idx (concl, r, prems, info) =
 
 and shift_concl free_idx (len, judg, info) =
     let new_judg =
-        let shift = shift_node (free_idx + len) in
+        let shift = shift_term (free_idx + len) in
         match judg with
         <shift_judg_ast>
     in
     (len, new_judg, info)
 
-and shift_node free_idx node =
-    let shift i t = shift_node (free_idx + i) t in
-    let updated =
-        match node.term with
-        <shift_ctor_ast>
-        <shift_builtin_ctor_ast>
-        | <var> (tag, id) when id < 0 -> <var> (tag, free_idx - id)
-        | <var> _ | <metavar> _ -> node.term
-    in
-    { node with term = updated }
+and shift_term free_idx term =
+    let shift i t = shift_term (free_idx + i) t in
+    match term with
+    <shift_ctor_ast>
+    <shift_builtin_ctor_ast>
+    | <var> (tag, id) when id < 0 -> <var> (tag, free_idx - id)
+    | <var> _ | <metavar> _ -> term
 
 let gen_free_vars ast = shift_ast (-1) ast
 
