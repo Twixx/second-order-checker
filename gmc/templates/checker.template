@@ -8,16 +8,42 @@ exception AbsError of int * int * info
 exception JudgError of info
 exception UnknownError of int
 
+module MLCode = struct
+(* Code as in the game file *)
+<ml_code>
+end
+
+(* get a term from a context recursively *)
+let rec build_term_from_ctx sub ctx =
+    let app = lookup_constraints sub in
+    match ctx with
+    (* constructors *)
+    <bltin_term_from_ctx>
+    <ctor_term_from_ctx>
+    | <cvar> (tag, id) -> <var> (tag, id)
+    | <closed> term -> term
+    | <proj> n -> raise (UnknownError (__LINE__))
+
+(* lookup and substitute the metavariables *)
+and lookup_constraints subs meta =
+    match subs with
+    | [] -> raise (UnknownError (__LINE__))
+    | head :: tail when head.met = meta ->
+            build_term_from_ctx subs head.sub
+    | head :: tail ->
+            lookup_constraints tail meta
+
 let check_qexprs max_vars f stream =
     let vars = Array.make max_vars (Proj 0) in
     let rec check_qexpr = function
         | None -> false
         | Some { Sstream.guess = guess; next = next } ->
                 let filter_sub { Ast.met = i; sub = c } =
-                    if i >= 0 && i < max_vars then vars.(i) <- c
+                    if i >= 0 && i < max_vars then
+                        vars.(i) <- c
                 in
-                List.iter filter_sub guess;
-                if f vars then true
+                List.map filter_sub guess;
+                if f guess vars then true
                 else check_qexpr (next ())
     in
     check_qexpr stream

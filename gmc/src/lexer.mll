@@ -37,6 +37,7 @@ rule token = parse
     | "[Syntax]"                  { SHEADER }
     | "[Judgments]"               { JHEADER }
     | "[Rules]"                   { RHEADER }
+    | "[ML]" (_+ as code)         { MLCODE code }
     | "with"                      { WITH }
     | "var"                       { VAR }
     | "true"                      { TRUE }

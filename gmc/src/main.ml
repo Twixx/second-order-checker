@@ -91,8 +91,8 @@ let () =
             sprintf "there is not only one lowest common parent category between %s and %s" cat1 cat2)
     | Game.InvalidBuiltin (name, pos) ->
             print_err pos (sprintf "Invalid built-in category: %s" name)
-    | Game.InvalidQVar (var, cat, pos) ->
-            print_err pos (sprintf "$%s is of category %s, only built-in category are allowed within quoted expressions" (var_name var) cat)
+    | Game.InvalidQVar (var, pos) ->
+            print_err pos (sprintf "$%s must be a first-order variable to be quoted" (var_name var))
     | Game.UndeclaredQVar (var, pos) ->
             print_err pos (sprintf "$%s is not declared" (var_name var))
     | Game.UndefinedBool pos ->

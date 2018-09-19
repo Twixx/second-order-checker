@@ -112,6 +112,13 @@ module EmitFiles (G : Game.GAME) = struct
         let subs = "\\1" ^ (String.concat "\n\\1" l) in
         Str.replace_first r subs str
 
+    (* Just substute the ML code as it with indentation *)
+    let emit_ml_code section ml_code str =
+        let r = Str.regexp section in
+        let indent = Str.global_replace (Str.regexp_string "\n") "\n    " in
+        let sub = match ml_code with Some s -> indent s | None -> "" in
+        Str.replace_first r sub str
+
     let open_file folder filename =
         let filename = Filename.concat folder filename in
         try
@@ -159,7 +166,10 @@ module EmitFiles (G : Game.GAME) = struct
     let emit_checker checker =
         let f = match_rule ctor_emit_infos judg_emit_infos cat_emit_infos builtin_emit_infos in
         emit_rule_pattern "<match_rule>" f checker |>
-        replace_builtin_names
+        emit_ctor_pattern "<ctor_term_from_ctx>" ctor_term_from_ctx |>
+        emit_builtin_pattern "<bltin_term_from_ctx>" bltin_term_from_ctx |>
+        replace_builtin_names |>
+        emit_ml_code "<ml_code>" G.ml_code
 
     let emit_files folder =
         if not (Sys.file_exists folder) || not (Sys.is_directory folder) then

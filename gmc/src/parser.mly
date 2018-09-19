@@ -1,4 +1,5 @@
 %token SHEADER JHEADER RHEADER
+%token <string> MLCODE
 %token IN WITH VAR TRUE FALSE
 %token <string> LCID UCID RULENAME
 %token DEF
@@ -20,9 +21,13 @@
 entrypoint:
     SHEADER defs = syncat+
     JHEADER judgs = judgment+
-    RHEADER rules = separated_nonempty_list(SEMI, rule) EOF
+    RHEADER rules = separated_nonempty_list(SEMI, rule)
+    ml_code = MLCODE? EOF
     {
-        { bnf_ast = defs; judgs = judgs; rules = rules; }
+        { bnf_ast = defs;
+        judgs = judgs;
+        rules = rules;
+        ml_code = ml_code }
     }
 
 syncat:

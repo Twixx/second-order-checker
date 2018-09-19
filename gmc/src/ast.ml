@@ -55,6 +55,7 @@ type game =
     { bnf_ast   : syncat list;
       judgs     : judgment list;
       rules     : rule list;
+      ml_code   : string option;
     }
 
 let print_info inf =

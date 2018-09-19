@@ -36,6 +36,9 @@ let builtin_ctx_fun t =
 let builtin_unify_one_fun t =
     sprintf "| %s p1, %s p2 when p1 = p2 ->\n\t\tcreate_eos sols" t.bltin_term t.bltin_term
 
+let bltin_term_from_ctx =
+    head_normalize_builtin_fun
+
 (* Judgments section *)
 let judg_def (name, arity) =
     if arity = 0 then sprintf "| %s" name
@@ -128,6 +131,14 @@ let unify_one_fun v =
             v.term_name params v.term_name params2 (List.hd rparams)
             (String.concat "; " (List.tl rparams))
 
+let ctor_term_from_ctx v =
+    if v.arity = 0 then sprintf "| %s -> %s" v.ctx_name v.term_name
+    else
+        let l = List.init v.arity (sprintf "p%i") in
+        let params = String.concat ", " l in
+        let params2 = String.concat ", " (List.map (sprintf "app %s") l) in
+        sprintf "| %s (%s) -> %s (%s)" v.ctx_name params v.term_name params2
+
 (* Rule sections *)
 let rule_enum (_, _, _, enum) = "| " ^ enum
 let rule_map_list (_, _, name, enum) = sprintf "(\"%s\", %s);" name enum
@@ -217,19 +228,20 @@ let match_rule ctors judgs tags builtins (premises, conclusion, name, enum) =
     let qmap = List.fold_left (fun m l -> List.fold_left add_qmap m l) QMap.empty qexps in
     let m = match QMap.max_binding_opt qmap with None -> 0 | Some (m, _) -> (m + 1) in
     let rec concat_qexp acc = function
-            | Game.QVar i :: tl -> concat_qexp (sprintf "%sv%i" acc i) tl
-            | QVar_btin (_, i) :: tl -> concat_qexp (sprintf "%sv%i" acc i) tl
+            | Game.QVar i :: tl -> concat_qexp (sprintf "%s_v%i" acc i) tl
+            | QVar_btin (_, i) :: tl -> concat_qexp (sprintf "%s_v%i" acc i) tl
             | QStr str :: tl -> concat_qexp (acc ^ str) tl
             | [] -> sprintf "\n(%s)" acc
     in
     let qexps_bodies = List.map (concat_qexp "") qexps in
     let qexps_body = String.concat " &&" qexps_bodies in
     let match_var i cat =
-        if cat < 0 then
-            sprintf "\nlet v%i = vars.(%i) in" i i
-        else
-            sprintf "\nlet v%i = match vars.(%i) with <closed> (%s v) -> v | _ -> raise (UnknownError __LINE__) in" i i builtins.(cat).bltin_term
+        let v = sprintf "\nlet _v%i = build_term_from_ctx guess vars.(%i) in" i i in
+        if cat >= 0 then
+            sprintf "%s\nlet _v%i = match _v%i with %s v -> v | _ -> raise (UnknownError __LINE__) in" v i i builtins.(cat).bltin_term
+        else v
     in
     let build_vars = QMap.fold (fun k v vars -> vars ^ (match_var k v)) qmap "" in
-    let fun_def = sprintf "\n|>\nlet check_qexpr vars =%s\nin check_qexprs %i check_qexpr" (indent (build_vars ^ qexps_body)) m in
+    let check_qexpr_b = build_vars ^ "\nlet open MLCode in" ^ qexps_body in
+    let fun_def = sprintf "\n|>\nlet check_qexpr guess vars =%s\nin check_qexprs %i check_qexpr" (indent check_qexpr_b) m in
     unif_body ^ (indent2 fun_def)

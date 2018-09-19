@@ -13,7 +13,7 @@ exception DiamondDetected of string * string
 exception MultipleAncestors of string * string * info
 exception InvalidBuiltin of string * info
 exception UndeclaredQVar of Ast.variable * info
-exception InvalidQVar of Ast.variable * string * info
+exception InvalidQVar of Ast.variable * info
 exception WrongArityVar of Ast.variable * int * int * info
 exception WrongArityCtor of string * int * int * info
 exception WrongMetaArityCtor of string * int * int * info
@@ -53,13 +53,14 @@ module type GAME = sig
     val judg_infos  : (string * cat_id list) array
     (* List of all injection constructors *)
     val sub_ctors   : (int * int) array
-
+    val ml_code     : string option
     val rule_infos  : (premise list * topexpr * Ast.rule_name) list
 end
 
 module MakeGame (G : GAME_AST) : GAME = struct
     let bnf_ast = G.game.bnf_ast
     let def_num = List.length bnf_ast
+    let ml_code = G.game.ml_code
 
     (* Build the table that associates category ID with category *)
     (* Table to keep track of all the names already defined and associated IDs *)
@@ -494,17 +495,18 @@ module MakeGame (G : GAME_AST) : GAME = struct
             | Ast.QVar ((name, i, p), pos) :: tl ->
                     let id = get_sym_id name pos in
                     let cid = sym_cats.(id) in
-                    let vid =
+                    let vid, params =
                         begin match Hashtbl.find_opt local_var_names (id, i, p) with
-                        | Some (vid, _, _) -> vid
+                        | Some (vid, _, params) -> (vid, params)
                         | None -> raise (UndeclaredQVar ((name, i, p), pos))
                         end
                     in
-                    if is_builtin cid then
+                    if params <> [] then
+                        raise (InvalidQVar ((name, i, p), pos))
+                    else if is_builtin cid then
                         QVar_btin (cid, vid) :: check_qexpr tl
                     else
                         (QVar vid) :: check_qexpr tl
-                    (*raise (InvalidQVar ((name, i, p), cat_names.(cid), pos));*)
             | Ast.QStr hd :: tl -> QStr hd :: check_qexpr tl
             | [] -> []
         in
