@@ -1,0 +1,192 @@
+(* 
+  ML1: À°¿ô (represented by int) + »°Â§±é»» + ¿¿µ¶ÃÍ + If + Èæ³Ó±é»» 
+  ML1Err: ML1 + error handling
+*)
+
+[Syntax]
+
+i in int
+
+b in bool
+
+v in Value ::= i | b
+
+r in Res ::= v | Error
+
+e in Exp ::= i
+          | b
+          | BinOp(op, e, e)
+          | If(e, e, e)
+
+op in Prim ::= Plus | Minus | Mult | Lt
+
+[Judgments]
+
+EvalTo(e; r)
+AppBOp(op, v, v; v)
+
+(* AppBOp(Lt, v1, v2, v3) is written "v1 < v2 is v3",
+    or "v1 is less than v2" when v3 is true, 
+    or "v1 is not less than v2" when v3 is false"
+*)
+
+[Rules]
+
+-----------------------E-Int
+EvalTo(i, i)
+;
+
+-----------------------E-Bool
+EvalTo(b, b)
+;
+
+EvalTo(e1, true) EvalTo(e2, v)
+---------------------------------E-IfT
+EvalTo(If(e1, e2, e3), v)
+;
+
+EvalTo(e1, false) EvalTo(e3, v)
+---------------------------------E-IfF
+EvalTo(If(e1, e2, e3), v)
+;
+
+EvalTo(e1, i1) EvalTo(e2, i2) AppBOp(Plus, i1, i2, i3)
+---------------------------------------------------------E-Plus
+EvalTo(BinOp(Plus, e1, e2), i3)
+;
+
+EvalTo(e1, i1) EvalTo(e2, i2) AppBOp(Minus, i1, i2, i3)
+--------------------------------------------------------E-Minus
+EvalTo(BinOp(Minus, e1, e2), i3)
+;
+
+EvalTo(e1, i1) EvalTo(e2, i2) AppBOp(Mult, i1, i2, i3)
+-------------------------------------------------------E-Times
+EvalTo(BinOp(Mult, e1, e2), i3)
+;
+
+EvalTo(e1, i1) EvalTo(e2, i2) AppBOp(Lt, i1, i2, b3)
+-----------------------------------------------------E-Lt
+EvalTo(BinOp(Lt, e1, e2), b3)
+;
+
+`$i3 = $i1 + $i2`
+-----------------------B-Plus
+AppBOp(Plus, i1, i2, i3)
+;
+
+`$i3 = $i1 - $i2`
+-----------------------B-Minus
+AppBOp(Minus, i1, i2, i3)
+;
+
+`$i3 = $i1 * $i2`
+-----------------------B-Times
+AppBOp(Mult, i1, i2, i3)
+;
+
+`$b3 = ($i1 < $i2)`
+-----------------------B-Lt
+AppBOp(Lt, i1, i2, b3)
+;
+
+
+EvalTo(e1, b)
+---------------------------------E-PlusBoolL
+EvalTo(BinOp(Plus, e1, e2), Error)
+;
+
+EvalTo(e2, b)
+---------------------------------E-PlusBoolR
+EvalTo(BinOp(Plus, e1, e2), Error)
+;
+
+EvalTo(e1, Error)
+---------------------------------E-PlusErrorL
+EvalTo(BinOp(Plus, e1, e2), Error)
+;
+
+EvalTo(e2, Error)
+---------------------------------E-PlusErrorR
+EvalTo(BinOp(Plus, e1, e2), Error)
+;
+
+EvalTo(e1, b)
+---------------------------------E-MinusBoolL
+EvalTo(BinOp(Minus, e1, e2), Error)
+;
+
+EvalTo(e2, b)
+---------------------------------E-MinusBoolR
+EvalTo(BinOp(Minus, e1, e2), Error)
+;
+
+EvalTo(e1, Error)
+---------------------------------E-MinusErrorL
+EvalTo(BinOp(Minus, e1, e2), Error)
+;
+
+EvalTo(e2, Error)
+---------------------------------E-MinusErrorR
+EvalTo(BinOp(Minus, e1, e2), Error)
+;
+
+EvalTo(e1, b)
+---------------------------------E-TimesBoolL
+EvalTo(BinOp(Mult, e1, e2), Error)
+;
+
+EvalTo(e2, b)
+---------------------------------E-TimesBoolR
+EvalTo(BinOp(Mult, e1, e2), Error)
+;
+
+EvalTo(e1, Error)
+---------------------------------E-TimesErrorL
+EvalTo(BinOp(Mult, e1, e2), Error)
+;
+
+EvalTo(e2, Error)
+---------------------------------E-TimesErrorR
+EvalTo(BinOp(Mult, e1, e2), Error)
+;
+
+EvalTo(e1, b)
+---------------------------------E-LtBoolL
+EvalTo(BinOp(Lt, e1, e2), Error)
+;
+
+EvalTo(e2, b)
+---------------------------------E-LtBoolR
+EvalTo(BinOp(Lt, e1, e2), Error)
+;
+
+EvalTo(e1, Error)
+---------------------------------E-LtErrorL
+EvalTo(BinOp(Lt, e1, e2), Error)
+;
+
+EvalTo(e2, Error)
+---------------------------------E-LtErrorR
+EvalTo(BinOp(Lt, e1, e2), Error)
+;
+
+EvalTo(e1, i)
+---------------------------------E-IfInt
+EvalTo(If(e1, e2, e3), Error)
+;
+
+EvalTo(e1, Error)
+---------------------------------E-IfError
+EvalTo(If(e1, e2, e3), Error)
+;
+
+EvalTo(e1, true) EvalTo(e2, Error)
+---------------------------------E-IfTError
+EvalTo(If(e1, e2, e3), Error)
+;
+
+EvalTo(e1, false) EvalTo(e3, Error)
+---------------------------------E-IfFError
+EvalTo(If(e1, e2, e3), Error)
+
