@@ -50,7 +50,7 @@ rule token = parse
                                   { VARNAME (build_var name "" p) }
     | lowercase+ as id            { LCID id }
     | ';'                         { SEMI }
-    | ','                         { COMA }
+    | ','                         { COMMA }
     | '|'                         { OR }
     | '('                         { LPAREN }
     | ')'                         { RPAREN }

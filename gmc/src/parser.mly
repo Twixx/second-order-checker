@@ -6,7 +6,7 @@
 %token LANGLE RANGLE
 %token LBRACKET RBRACKET
 %token OR
-%token SEMI COMA
+%token SEMI COMMA
 %token <string * int * int> VARNAME
 %token <Ast.qexp list> QEXP
 %token EOF
@@ -43,7 +43,7 @@ syncat:
 
 symbol_list:
     symb = LCID { [(symb, ($startpos, $endpos))] }
-    | s = LCID COMA l = symbol_list { (s, ($startpos(s), $endpos(s))) :: l}
+    | s = LCID COMMA l = symbol_list { (s, ($startpos(s), $endpos(s))) :: l}
     | s = LCID SEMI l = symbol_list { (s, ($startpos(s), $endpos(s))) :: l}
 
 var_symbols:
@@ -56,7 +56,7 @@ syncat_defs:
 
 syncat_def:
     | name = UCID ctx = meta_par
-      t = loption(delimited(LPAREN, separated_list(COMA, ctor_param), RPAREN))
+      t = loption(delimited(LPAREN, separated_list(COMMA, ctor_param), RPAREN))
     {
         let info = ($startpos, $endpos) in
         Ast.CtorDef ((name, ctx, t), info)
@@ -68,7 +68,7 @@ syncat_def:
     }
 
 meta_par:
-    l = loption(delimited(LANGLE, separated_list(COMA, mpar), RANGLE))
+    l = loption(delimited(LANGLE, separated_list(COMMA, mpar), RANGLE))
     { List.rev l }
 
 mpar:
@@ -109,14 +109,14 @@ premise:
     | e = QEXP { QExp e }
 
 topexpr:
-    name = UCID LPAREN l = separated_list(COMA, expr) RPAREN
+    name = UCID LPAREN l = separated_list(COMMA, expr) RPAREN
     {
         let info = ($startpos, $endpos) in
         let judg = (name, l) in
         (* add an empty context *)
         ([], judg, info)
     }
-    | LPAREN vars = separated_nonempty_list(COMA, mpar) RPAREN LBRACKET t = topexpr RBRACKET
+    | LPAREN vars = separated_nonempty_list(COMMA, mpar) RPAREN LBRACKET t = topexpr RBRACKET
     {
         let ctx, expr, info = t in
         (ctx @ (List.rev vars), expr, info)
@@ -124,7 +124,7 @@ topexpr:
 
 expr:
     name = UCID vars = meta_par
-    l = loption(delimited(LPAREN, separated_list(COMA, expr), RPAREN))
+    l = loption(delimited(LPAREN, separated_list(COMMA, expr), RPAREN))
     {
         let info = ($startpos, $endpos) in
         (Ast.Ctor (name, vars, l), info)
@@ -144,4 +144,4 @@ varname:
 
 var_params:
     (* empty *) { [] }
-    | LBRACKET l = separated_list(COMA, expr) RBRACKET { l }
+    | LBRACKET l = separated_list(COMMA, expr) RBRACKET { l }

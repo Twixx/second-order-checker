@@ -33,7 +33,7 @@ rule token = parse
     | "{" { LBRA }
     | "}" { RBRA }
     | ";" { SEMI }
-    | "," { COMA }
+    | "," { COMMA }
     | "<" { LANGLE }
     | ">" { RANGLE }
     | "(" { LPAREN }
@@ -54,7 +54,7 @@ rule token = parse
     | "-d->"
     | ['!' '"' '#' '$' '%' '&' '*' '+' '-' '.' '/' ':' '<' '=' '>' '+'
     '@' '^' '`' '~' '|']+ | '\'' | ',' | '\\' | '(' | ')' as sym
-        { try Hashtbl.find tbl sym with _ -> ID sym }
+        { try Hashtbl.find tbl sym with _ -> lex_error "unexpected symbol" lexbuf }
     | ['0' - '9']+ as intl { INTL (int_of_string intl) }
     | eof { EOF }
     | _ { lex_error "unexpected character" lexbuf }

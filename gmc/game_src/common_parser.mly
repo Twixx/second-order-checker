@@ -9,7 +9,7 @@
 %token LBRA RBRA
 %token LSBRA RSBRA
 %token BY
-%token SEMI COMA LPAREN RPAREN
+%token SEMI COMMA LPAREN RPAREN
 %token <int> INTL
 %token EOF
 %token <string> LCID UCID ID
@@ -56,7 +56,7 @@ premise_list:
     | p = premise SEMI? { [p] }
 
 concl:
-    LANGLE vars = separated_nonempty_list(COMA, LCID) RANGLE LSBRA concl = concl RSBRA
+    LANGLE vars = separated_nonempty_list(COMMA, LCID) RANGLE LSBRA concl = concl RSBRA
     {
         fun count ctx ->
             concl (count + (List.length vars)) (Ast.add_bounds ctx vars)
@@ -64,7 +64,7 @@ concl:
     | judg = judgment { fun count ctx -> (count, judg ctx) }
 
 premise:
-    LANGLE vars = separated_nonempty_list(COMA, LCID) RANGLE LSBRA j = premise RSBRA
+    LANGLE vars = separated_nonempty_list(COMMA, LCID) RANGLE LSBRA j = premise RSBRA
     {
         fun count ctx ->
             j (count + List.length vars) (Ast.add_bounds ctx vars)

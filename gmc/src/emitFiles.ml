@@ -66,11 +66,17 @@ module EmitFiles (G : Game.GAME) = struct
 
     (* Build the built-in types emit informations *)
     let builtin_emit_infos =
+        let build_builtin_type id =
+            let first = G.cat_names.(id).[0] in
+            if (Char.lowercase_ascii first = first) then
+                G.cat_names.(id)
+            else "string"
+        in
         let build_builtin i =
             let str = builtin_from_catname G.cat_names.(i) in
             {  bltin_term = builtin_from_catname str;
                bltin_ctx = ctx_from_ctor str;
-               bltin_type = G.cat_names.(i); }
+               bltin_type = build_builtin_type i; }
         in
         Array.init G.builtin_num build_builtin
 

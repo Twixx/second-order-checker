@@ -37,7 +37,7 @@ and expr =
 
 type judg = ctor_id * expr list
 type topexpr = int * ctor_id * expr list
-type qexpr = QVar of cat_id * var_id | QStr of string
+type qexpr = QVar_btin of cat_id * var_id | QVar of var_id  | QStr of string
 type premise = Judg of topexpr | QExp of qexpr list
 
 module type GAME_AST = sig val game : Ast.game end
@@ -60,10 +60,6 @@ end
 module MakeGame (G : GAME_AST) : GAME = struct
     let bnf_ast = G.game.bnf_ast
     let def_num = List.length bnf_ast
-
-    let is_valid_builtin_name = function
-        | "int" | "bool" | "float" -> true
-        | _ -> false
 
     (* Build the table that associates category ID with category *)
     (* Table to keep track of all the names already defined and associated IDs *)
@@ -90,6 +86,13 @@ module MakeGame (G : GAME_AST) : GAME = struct
         let first = cat_names.(id).[0] in
         (Char.lowercase_ascii first = first)
 
+    let is_valid_builtin_name name =
+        if name.[0] = (Char.lowercase_ascii name.[0]) then
+            match name with
+            | "int" | "bool" -> true
+            | _ -> false
+        else true
+
     (* Collect everything from the BNF *)
     let cat_names, builtin_num, sym_cats, var_tags, var_cat_defs, ctor_infos =
         (* Keep track of defined categories *)
@@ -104,8 +107,9 @@ module MakeGame (G : GAME_AST) : GAME = struct
         let rec extract_cats builtin userdef btin_defs defs = function
             | { Ast.catname = (name, pos) } as hd :: tl ->
                     check_cat pos name;
-                    if name.[0] = (Char.lowercase_ascii name.[0]) then begin
-                        if not (is_valid_builtin_name name) then raise (InvalidBuiltin (name, pos));
+                    if hd.defs = [] then begin
+                        if not (is_valid_builtin_name name) then
+                            raise (InvalidBuiltin (name, pos));
                         extract_cats (name :: builtin) userdef (hd :: btin_defs) defs tl
                     end else begin
                         extract_cats builtin (name :: userdef) btin_defs (hd :: defs) tl
@@ -117,12 +121,15 @@ module MakeGame (G : GAME_AST) : GAME = struct
 
         (* Build the tables that associate symbol with ID and category
          * and the category of a (meta)variable definiton (which is its tag) *)
+        (* The hashtables count increases at the same time than the lists, then
+            * adding the count as id matches the corresponding element in the
+            * generated list *)
         let add_name names cid (name, pos) =
             let r1 = Hashtbl.find_opt sym_nametbl name in
             let r2 = Hashtbl.find_opt var_nametbl name in
             match r1, r2 with
             | None, None ->
-                    Hashtbl.add names name cid;
+                    Hashtbl.add names name (Hashtbl.length names);
                     cid
             | _ -> raise (SymbolAlreadyDefined (name, pos))
         in
@@ -204,7 +211,7 @@ module MakeGame (G : GAME_AST) : GAME = struct
     let () =
         let visited = Array.make def_num UNVISITED in
         let rec check_tree id =
-            (* Merge to maps and increase the distance by one *)
+            (* Merge the maps and increase the distance by one *)
             let rec build_union id acc = function
                 | hd :: tl ->
                         let f k v1 v2 = raise (DiamondDetected (cat_names.(k), cat_names.(id))) in
@@ -312,7 +319,7 @@ module MakeGame (G : GAME_AST) : GAME = struct
             | _ -> acc
         in
         match VMap.bindings common with
-        (* if there are some comment parents *)
+        (* if there are some common parents *)
         | hd :: tl ->
                 (* extract the closest one *)
                 let (min, _), rest = extract_min (hd, []) tl in
@@ -493,8 +500,11 @@ module MakeGame (G : GAME_AST) : GAME = struct
                         | None -> raise (UndeclaredQVar ((name, i, p), pos))
                         end
                     in
-                    if not (is_builtin cid) then raise (InvalidQVar ((name, i, p), cat_names.(cid), pos));
-                    QVar (cid, vid) :: check_qexpr tl
+                    if is_builtin cid then
+                        QVar_btin (cid, vid) :: check_qexpr tl
+                    else
+                        (QVar vid) :: check_qexpr tl
+                    (*raise (InvalidQVar ((name, i, p), cat_names.(cid), pos));*)
             | Ast.QStr hd :: tl -> QStr hd :: check_qexpr tl
             | [] -> []
         in
