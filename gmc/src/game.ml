@@ -454,19 +454,24 @@ module MakeGame (G : GAME_AST) : GAME = struct
                     (* Check the parameters *)
                     (cid, Ctor (id, check_ctor_params name vars params args))
             | Ast.Var ((name, i, p), params) ->
-                    try
-                        let id = get_sym_id name pos in
+                    let id =
+                        try Some (get_sym_id name pos)
+                        with UndefinedSymbol _ -> None
+                    in
+                    begin match id with
+                    | Some id ->
                         let cids, exprs = check_var_params [] [] params in
                         let cid = sym_cats.(id) in
                         let var_id = add_var name pos (id, i, p) (cid, cids) in
                         (cid, Var (var_id, exprs))
-                    with UndefinedSymbol _ ->
+                    | None ->
                         let vid = get_var_id name pos in
                         if bound_allowed && i = -1 && p = 0 && List.length params = 0 then
                             let tag, cat = (var_tags.(vid), var_cats.(vid)) in
                             (cat, Bound (tag, cat, lookup 0 ctx name))
                         else
                             raise (InvalidBoundParam (name, pos))
+                    end
         in
         (* Check the judgements *)
         let check_judg_expr ctx ((name, params), pos) =
